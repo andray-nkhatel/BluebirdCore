@@ -18,12 +18,12 @@ namespace BluebirdCore.Entities
 
         public SchoolSection Section { get; set; }
 
-        public int HomeroomTeacherId { get; set; }
+        public int? HomeroomTeacherId { get; set; }
 
         public bool IsActive { get; set; } = true;
 
         // Navigation properties
-        public virtual User? HomeroomTeacher { get; set; }
+        public virtual User HomeroomTeacher { get; set; }
         public virtual  ICollection<Student> Students { get; set; } = new List<Student>();
         public virtual  ICollection<GradeSubject> GradeSubjects { get; set; } = new List<GradeSubject>();
 

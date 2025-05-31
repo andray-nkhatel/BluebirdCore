@@ -97,9 +97,9 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // Include XML comments
-    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+    // // Include XML comments
+    // var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    // c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
 });
 
 // ===== CORS CONFIGURATION =====
@@ -129,7 +129,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "School Management System API v1");
-        c.RoutePrefix = "swagger";
+        c.RoutePrefix = "";
         c.DisplayRequestDuration();
         c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
     });

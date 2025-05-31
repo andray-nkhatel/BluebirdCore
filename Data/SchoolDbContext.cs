@@ -177,7 +177,7 @@ namespace BluebirdCore.Data
                     Id = 1, 
                     Name = "2024-2025", 
                     StartDate = new DateTime(2024, 9, 1), 
-                    EndDate = new DateTime(2025, 6, 30), 
+                    EndDate = new DateTime(2024, 12, 5), 
                     IsActive = true 
                 }
             );
@@ -188,11 +188,12 @@ namespace BluebirdCore.Data
                 {
                     Id = 1,
                     Username = "admin",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                    PasswordHash = "$2a$12$Y5Cr10SW4OuJq6qxj7PXtOhZvb7loVQqIRRwcrH8hsdsoeRCririq",
                     FullName = "System Administrator",
                     Email = "admin@school.edu",
                     Role = UserRole.Admin,
-                    IsActive = true
+                    IsActive = true,
+                    CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                 }
             );
 
