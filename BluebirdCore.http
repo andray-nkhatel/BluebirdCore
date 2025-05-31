@@ -1,0 +1,6 @@
+@BluebirdCore_HostAddress = http://localhost:5287
+
+GET {{BluebirdCore_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
