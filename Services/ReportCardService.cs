@@ -15,9 +15,9 @@ namespace BluebirdCore.Services
     public class ReportCardService : IReportCardService
     {
         private readonly SchoolDbContext _context;
-        private readonly IReportCardPdfService _pdfService;
+        private readonly ReportCardPdfService _pdfService;
 
-        public ReportCardService(SchoolDbContext context, IReportCardPdfService pdfService)
+        public ReportCardService(SchoolDbContext context, ReportCardPdfService pdfService)
         {
             _context = context;
             _pdfService = pdfService;

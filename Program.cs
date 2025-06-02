@@ -7,6 +7,7 @@ using BluebirdCore.Services;
 using System.Text;
 using System.Text.Json.Serialization;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ===== DATABASE CONFIGURATION =====
@@ -18,9 +19,11 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IReportCardService, ReportCardService>();
-builder.Services.AddScoped<IReportCardPdfService, ReportCardPdfService>();
+builder.Services.AddScoped<ReportCardPdfService>();
 builder.Services.AddScoped<IAcademicYearService, AcademicYearService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
+builder.Services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
 
 // ===== CONTROLLERS =====
 builder.Services.AddControllers()
@@ -144,33 +147,36 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// ===== DATABASE INITIALIZATION =====
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+    var initializer = scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>();
+    var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
     
     try
     {
-        // Ensure database is created
-        context.Database.EnsureCreated();
+        // Initialize database and run migrations
+        await initializer.InitializeAsync();
         
-        // Apply pending migrations
-        if (context.Database.GetPendingMigrations().Any())
-        {
-            context.Database.Migrate();
-        }
+        // Seed initial data
+        await seeder.SeedAsync();
         
-        Console.WriteLine("Database initialized successfully.");
+        Console.WriteLine("Database setup completed successfully.");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error initializing database: {ex.Message}");
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error during database setup");
+        Console.WriteLine($"Error during database setup: {ex.Message}");
+        
+        // Don't stop the application, but log the error
+        Console.WriteLine("Application will continue running. Please check database configuration.");
     }
 }
 
 // ===== STARTUP MESSAGE =====
 app.Logger.LogInformation("School Management System API started successfully");
 app.Logger.LogInformation($"Environment: {app.Environment.EnvironmentName}");
-app.Logger.LogInformation($"Swagger UI available at: /swagger");
+app.Logger.LogInformation($"Swagger UI available at: /");
+
 
 app.Run();
