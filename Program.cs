@@ -140,11 +140,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseCors("AllowAll");
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
