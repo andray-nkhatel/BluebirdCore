@@ -6,9 +6,15 @@ using BluebirdCore.Data;
 using BluebirdCore.Services;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ===== FIX JWT CLAIM MAPPING =====
+// This prevents ASP.NET Core from mapping JWT claims to Microsoft claims
+// JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
 
 // ===== DATABASE CONFIGURATION =====
 builder.Services.AddDbContext<SchoolDbContext>(options =>
@@ -38,6 +44,7 @@ var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
+// Remove the duplicate and fix the structure
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -50,10 +57,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+        };
+        
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var claimsIdentity = context.Principal.Identity as ClaimsIdentity;
+                
+                // Map the "role" claim to the standard role claim type
+                var roleClaim = claimsIdentity?.FindFirst("role");
+                if (roleClaim != null)
+                {
+                    claimsIdentity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
+                }
+                
+                return Task.CompletedTask;
+            }
         };
     });
-
 builder.Services.AddAuthorization();
 
 // ===== SWAGGER CONFIGURATION =====

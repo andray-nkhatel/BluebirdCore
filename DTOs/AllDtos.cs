@@ -201,22 +201,22 @@ namespace BluebirdCore.DTOs
         [Required]
         public int ToGradeId { get; set; }
     }
-    
+
     public class CreateGradeDto
     {
         [Required]
         [StringLength(50)]
         public string Name { get; set; }
-        
+
         [StringLength(50)]
         public string Stream { get; set; }
-        
+
         [Required]
         public int Level { get; set; }
-        
+
         [Required]
         public SchoolSection Section { get; set; }
-        
+
         public int? HomeroomTeacherId { get; set; }
     }
 
@@ -231,10 +231,10 @@ namespace BluebirdCore.DTOs
         [Required]
         [StringLength(100)]
         public string Name { get; set; }
-        
+
         [StringLength(10)]
         public string Code { get; set; }
-        
+
         [StringLength(500)]
         public string Description { get; set; }
     }
@@ -248,7 +248,7 @@ namespace BluebirdCore.DTOs
     {
         [Required]
         public int TeacherId { get; set; }
-        
+
         [Required]
         public int GradeId { get; set; }
     }
@@ -258,10 +258,10 @@ namespace BluebirdCore.DTOs
         [Required]
         [StringLength(50)]
         public string Name { get; set; }
-        
+
         [StringLength(200)]
         public string Description { get; set; }
-        
+
         [Required]
         public int Order { get; set; }
     }
@@ -281,11 +281,32 @@ namespace BluebirdCore.DTOs
         [Required]
         [StringLength(20)]
         public string Name { get; set; }
-        
+
         [Required]
         public DateTime StartDate { get; set; }
-        
+
         [Required]
         public DateTime EndDate { get; set; }
+    }
+    
+    public class UpdateStudentDto
+    {
+    
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string MiddleName { get; set; }
+        public string StudentNumber { get; set; }
+        public DateTime DateOfBirth { get; set; }
+        public string Gender { get; set; }
+        public string Address { get; set; }
+        public string PhoneNumber { get; set; }
+        public string GuardianName { get; set; }
+        public string GuardianPhone { get; set; }
+        public int GradeId { get; set; }
+        public string GradeName { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsArchived { get; set; }
+        public List<SubjectDto> OptionalSubjects { get; set; }
+        // Add other fields as needed
     }
 }

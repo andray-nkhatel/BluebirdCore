@@ -94,6 +94,76 @@ namespace BluebirdCore.Entities
             });
         }
 
+
+        /// <summary>
+        /// Update an existing student (Admin only)
+        /// </summary>
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<StudentDto>> UpdateStudent(int id, [FromBody] UpdateStudentDto updateStudentDto)
+        {
+            // Check if student exists
+            var existingStudent = await _studentService.GetStudentByIdAsync(id);
+            if (existingStudent == null)
+                return NotFound();
+
+            // Map fields from DTO to entity
+            existingStudent.FirstName = updateStudentDto.FirstName;
+            existingStudent.LastName = updateStudentDto.LastName;
+            existingStudent.MiddleName = updateStudentDto.MiddleName;
+            existingStudent.StudentNumber = updateStudentDto.StudentNumber;
+            existingStudent.DateOfBirth = updateStudentDto.DateOfBirth;
+            existingStudent.Gender = updateStudentDto.Gender;
+            existingStudent.Address = updateStudentDto.Address;
+            existingStudent.PhoneNumber = updateStudentDto.PhoneNumber;
+            existingStudent.GuardianName = updateStudentDto.GuardianName;
+            existingStudent.GuardianPhone = updateStudentDto.GuardianPhone;
+            existingStudent.GradeId = updateStudentDto.GradeId;
+            existingStudent.IsActive = updateStudentDto.IsActive;
+            // existingStudent.IsArchived = updateStudentDto.IsArchived;
+            
+            // Add any other fields as needed
+
+            try
+            {
+                var updatedStudent = await _studentService.UpdateStudentAsync(existingStudent);
+
+                return Ok(new StudentDto
+                {
+                    Id = updatedStudent.Id,
+                    FirstName = updatedStudent.FirstName,
+                    LastName = updatedStudent.LastName,
+                    MiddleName = updatedStudent.MiddleName,
+                    StudentNumber = updatedStudent.StudentNumber,
+                    DateOfBirth = updatedStudent.DateOfBirth,
+                    Gender = updatedStudent.Gender,
+                    Address = updatedStudent.Address,
+                    PhoneNumber = updatedStudent.PhoneNumber,
+                    GuardianName = updatedStudent.GuardianName,
+                    GuardianPhone = updatedStudent.GuardianPhone,
+                    GradeId = updatedStudent.GradeId,
+                    GradeName = updatedStudent.Grade?.FullName,
+                    IsActive = updatedStudent.IsActive,
+                    IsArchived = updatedStudent.IsArchived,
+                    EnrollmentDate = updatedStudent.EnrollmentDate,
+                    FullName = updatedStudent.FullName,
+                    OptionalSubjects = updatedStudent.OptionalSubjects?.Select(os => new SubjectDto
+                    {
+                        Id = os.Subject.Id,
+                        Name = os.Subject.Name,
+                        Code = os.Subject.Code
+                    }).ToList() ?? new List<SubjectDto>()
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+
+
+
         /// <summary>
         /// Create new student (Admin only)
         /// </summary>
