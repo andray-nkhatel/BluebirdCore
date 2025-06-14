@@ -174,6 +174,29 @@ namespace BluebirdCore.DTOs
         public int Term { get; set; }
     }
 
+     // For updating existing scores
+    public class UpdateExamScoreDto
+    {
+        [Required]
+        [Range(0, 100, ErrorMessage = "Score must be between 0 and 100")]
+        public decimal Score { get; set; }
+    }
+
+   // For updating exam types
+    public class UpdateExamTypeDto
+    {
+        [Required]
+        [StringLength(50, ErrorMessage = "Name cannot exceed 50 characters")]
+        public string Name { get; set; }
+
+        [StringLength(200, ErrorMessage = "Description cannot exceed 200 characters")]
+        public string Description { get; set; }
+
+        [Range(1, 100, ErrorMessage = "Order must be between 1 and 100")]
+        public int Order { get; set; }
+    }
+
+
     public class ReportCardDto
     {
         public int Id { get; set; }

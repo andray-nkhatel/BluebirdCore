@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text;
 
 namespace BluebirdCore.Controllers
 {
@@ -95,6 +96,403 @@ namespace BluebirdCore.Controllers
             {
                 _logger.LogError(ex, "Error retrieving grade scores for GradeId: {GradeId}", gradeId);
                 return StatusCode(500, "An error occurred while retrieving grade scores");
+            }
+        }
+
+        /// <summary>
+        /// Get students by grade - NEW ENDPOINT needed by frontend
+        /// </summary>
+        [HttpGet("students/grade/{gradeId}")]
+        [Authorize(Roles = "Admin,Teacher,Staff")]
+        public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudentsByGrade(int gradeId)
+        {
+            try
+            {
+                var students = await _context.Students
+                    .Where(s => s.GradeId == gradeId && s.IsActive)
+                    .OrderBy(s => s.FullName)
+                    .Select(s => new StudentDto
+                    {
+                        Id = s.Id,
+                        FullName = s.FullName,
+                        StudentNumber = s.StudentNumber,
+                        GradeId = s.GradeId
+                    })
+                    .ToListAsync();
+
+                return Ok(students);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving students for GradeId: {GradeId}", gradeId);
+                return StatusCode(500, "An error occurred while retrieving students");
+            }
+        }
+
+        /// <summary>
+        /// Export gradebook for a grade/subject - NEW ENDPOINT needed by frontend
+        /// </summary>
+        [HttpGet("grade/{gradeId}/export")]
+        [Authorize(Roles = "Admin,Teacher,Staff")]
+        public async Task<ActionResult> ExportGradeBook(
+            int gradeId, 
+            [FromQuery] int academicYear, 
+            [FromQuery] int term,
+            [FromQuery] int? subjectId = null,
+            [FromQuery] string format = "xlsx")
+        {
+            try
+            {
+                // Get scores for the grade
+                var scoresQuery = _context.ExamScores
+                    .Include(s => s.Student)
+                    .Include(s => s.Subject)
+                    .Include(s => s.ExamType)
+                    .Where(s => s.GradeId == gradeId && 
+                               s.AcademicYear == academicYear && 
+                               s.Term == term);
+
+                if (subjectId.HasValue)
+                {
+                    scoresQuery = scoresQuery.Where(s => s.SubjectId == subjectId.Value);
+                }
+
+                var scores = await scoresQuery.ToListAsync();
+
+                // Get all students in grade for complete roster
+                var students = await _context.Students
+                    .Where(s => s.GradeId == gradeId && s.IsActive)
+                    .OrderBy(s => s.FullName)
+                    .ToListAsync();
+
+                // Create CSV content
+                var csv = new StringBuilder();
+                
+                // Headers
+                csv.AppendLine("Student Number,Student Name,Subject,Exam Type,Score,Grade,Recorded Date");
+
+                // Group scores by student
+                var studentScores = scores.GroupBy(s => s.StudentId).ToDictionary(g => g.Key, g => g.ToList());
+
+                foreach (var student in students)
+                {
+                    var studentScoresList = studentScores.ContainsKey(student.Id) ? studentScores[student.Id] : new List<ExamScore>();
+                    
+                    if (studentScoresList.Any())
+                    {
+                        foreach (var score in studentScoresList)
+                        {
+                            var grade = CalculateGrade(score.Score);
+                            csv.AppendLine($"{student.StudentNumber},{student.FullName},{score.Subject?.Name},{score.ExamType?.Name},{score.Score},{grade},{score.RecordedAt:yyyy-MM-dd}");
+                        }
+                    }
+                    else
+                    {
+                        // Include students with no scores
+                        csv.AppendLine($"{student.StudentNumber},{student.FullName},,,,,");
+                    }
+                }
+
+                var fileName = $"gradebook_{gradeId}_{academicYear}_T{term}.csv";
+                var bytes = Encoding.UTF8.GetBytes(csv.ToString());
+
+                return File(bytes, "text/csv", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting gradebook for GradeId: {GradeId}", gradeId);
+                return StatusCode(500, "An error occurred while exporting gradebook");
+            }
+        }
+
+        /// <summary>
+        /// Generate report card for a student - NEW ENDPOINT
+        /// </summary>
+        [HttpGet("student/{studentId}/report-card")]
+        [Authorize(Roles = "Admin,Teacher,Staff")]
+        public async Task<ActionResult> GenerateReportCard(int studentId, [FromQuery] int academicYear, [FromQuery] int term)
+        {
+            try
+            {
+                var student = await _context.Students
+                    .Include(s => s.Grade)
+                    .FirstOrDefaultAsync(s => s.Id == studentId);
+
+                if (student == null)
+                {
+                    return NotFound("Student not found");
+                }
+
+                var scores = await _context.ExamScores
+                    .Include(s => s.Subject)
+                    .Include(s => s.ExamType)
+                    .Where(s => s.StudentId == studentId && 
+                               s.AcademicYear == academicYear && 
+                               s.Term == term)
+                    .ToListAsync();
+
+                // Create simple CSV report card
+                var csv = new StringBuilder();
+                csv.AppendLine($"REPORT CARD");
+                csv.AppendLine($"Student: {student.FullName}");
+                csv.AppendLine($"Student Number: {student.StudentNumber}");
+                csv.AppendLine($"Grade: {student.Grade?.FullName}");
+                csv.AppendLine($"Academic Year: {academicYear}");
+                csv.AppendLine($"Term: {term}");
+                csv.AppendLine();
+                csv.AppendLine("Subject,Exam Type,Score,Grade");
+
+                foreach (var score in scores.OrderBy(s => s.Subject?.Name).ThenBy(s => s.ExamType?.Name))
+                {
+                    var grade = CalculateGrade(score.Score);
+                    csv.AppendLine($"{score.Subject?.Name},{score.ExamType?.Name},{score.Score},{grade}");
+                }
+
+                var fileName = $"report_card_{student.StudentNumber}_{academicYear}_T{term}.csv";
+                var bytes = Encoding.UTF8.GetBytes(csv.ToString());
+
+                return File(bytes, "text/csv", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating report card for StudentId: {StudentId}", studentId);
+                return StatusCode(500, "An error occurred while generating report card");
+            }
+        }
+
+        /// <summary>
+        /// Bulk submit scores - NEW ENDPOINT
+        /// </summary>
+        [HttpPost("scores/bulk")]
+        [Authorize(Roles = "Teacher")]
+        public async Task<ActionResult> BulkSubmitScores([FromBody] List<CreateExamScoreDto> scoresData)
+        {
+            try
+            {
+                var teacherIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(teacherIdClaim) || !int.TryParse(teacherIdClaim, out int teacherId))
+                {
+                    return Unauthorized("Invalid teacher credentials");
+                }
+
+                var results = new List<ExamScoreDto>();
+
+                foreach (var scoreDto in scoresData)
+                {
+                    // Get student's grade
+                    var student = await _context.Students.FindAsync(scoreDto.StudentId);
+                    if (student == null) continue;
+
+                    // Check authorization
+                    var canEnter = await _examService.CanTeacherEnterScore(teacherId, scoreDto.SubjectId, student.GradeId);
+                    if (!canEnter) continue;
+
+                    var examScore = new ExamScore
+                    {
+                        StudentId = scoreDto.StudentId,
+                        SubjectId = scoreDto.SubjectId,
+                        ExamTypeId = scoreDto.ExamTypeId,
+                        GradeId = student.GradeId,
+                        Score = scoreDto.Score,
+                        AcademicYear = scoreDto.AcademicYear,
+                        Term = scoreDto.Term,
+                        RecordedBy = teacherId
+                    };
+
+                    var createdScore = await _examService.CreateOrUpdateScoreAsync(examScore);
+                    
+                    // Add to results
+                    results.Add(new ExamScoreDto
+                    {
+                        Id = createdScore.Id,
+                        StudentId = createdScore.StudentId,
+                        SubjectId = createdScore.SubjectId,
+                        ExamTypeId = createdScore.ExamTypeId,
+                        Score = createdScore.Score,
+                        AcademicYear = createdScore.AcademicYear,
+                        Term = createdScore.Term,
+                        RecordedAt = createdScore.RecordedAt
+                    });
+                }
+
+                return Ok(new { Message = $"Successfully processed {results.Count} scores", Results = results });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk submit scores");
+                return StatusCode(500, "An error occurred while processing bulk scores");
+            }
+        }
+
+        /// <summary>
+        /// Update existing score - NEW ENDPOINT
+        /// </summary>
+        [HttpPut("scores/{scoreId}")]
+        [Authorize(Roles = "Teacher")]
+        public async Task<ActionResult<ExamScoreDto>> UpdateScore(int scoreId, [FromBody] UpdateExamScoreDto scoreDto)
+        {
+            try
+            {
+                var teacherIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(teacherIdClaim) || !int.TryParse(teacherIdClaim, out int teacherId))
+                {
+                    return Unauthorized("Invalid teacher credentials");
+                }
+
+                var existingScore = await _context.ExamScores
+                    .Include(s => s.Student)
+                    .FirstOrDefaultAsync(s => s.Id == scoreId);
+
+                if (existingScore == null)
+                {
+                    return NotFound("Score not found");
+                }
+
+                // Check authorization
+                var canEnter = await _examService.CanTeacherEnterScore(teacherId, existingScore.SubjectId, existingScore.Student.GradeId);
+                if (!canEnter)
+                {
+                    return Forbid("Not authorized to update this score");
+                }
+
+                existingScore.Score = scoreDto.Score;
+                existingScore.RecordedAt = DateTime.UtcNow;
+                existingScore.RecordedBy = teacherId;
+
+                await _context.SaveChangesAsync();
+
+                var responseDto = new ExamScoreDto
+                {
+                    Id = existingScore.Id,
+                    StudentId = existingScore.StudentId,
+                    SubjectId = existingScore.SubjectId,
+                    ExamTypeId = existingScore.ExamTypeId,
+                    Score = existingScore.Score,
+                    AcademicYear = existingScore.AcademicYear,
+                    Term = existingScore.Term,
+                    RecordedAt = existingScore.RecordedAt
+                };
+
+                return Ok(responseDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating score {ScoreId}", scoreId);
+                return StatusCode(500, "An error occurred while updating the score");
+            }
+        }
+
+        /// <summary>
+        /// Delete score - NEW ENDPOINT
+        /// </summary>
+        [HttpDelete("scores/{scoreId}")]
+        [Authorize(Roles = "Teacher,Admin")]
+        public async Task<ActionResult> DeleteScore(int scoreId)
+        {
+            try
+            {
+                var teacherIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(teacherIdClaim) || !int.TryParse(teacherIdClaim, out int teacherId))
+                {
+                    return Unauthorized("Invalid teacher credentials");
+                }
+
+                var existingScore = await _context.ExamScores
+                    .Include(s => s.Student)
+                    .FirstOrDefaultAsync(s => s.Id == scoreId);
+
+                if (existingScore == null)
+                {
+                    return NotFound("Score not found");
+                }
+
+                // Check authorization (teachers can only delete their own scores)
+                if (!User.IsInRole("Admin") && existingScore.RecordedBy != teacherId)
+                {
+                    return Forbid("Not authorized to delete this score");
+                }
+
+                _context.ExamScores.Remove(existingScore);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { Message = "Score deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting score {ScoreId}", scoreId);
+                return StatusCode(500, "An error occurred while deleting the score");
+            }
+        }
+
+        /// <summary>
+        /// Get score statistics - NEW ENDPOINT
+        /// </summary>
+        [HttpGet("statistics")]
+        [Authorize(Roles = "Admin,Teacher,Staff")]
+        public async Task<ActionResult<object>> GetScoreStatistics(
+            [FromQuery] int? gradeId = null,
+            [FromQuery] int? subjectId = null,
+            [FromQuery] int? academicYear = null,
+            [FromQuery] int? term = null)
+        {
+            try
+            {
+                var query = _context.ExamScores.AsQueryable();
+
+                if (gradeId.HasValue) query = query.Where(s => s.GradeId == gradeId);
+                if (subjectId.HasValue) query = query.Where(s => s.SubjectId == subjectId);
+                if (academicYear.HasValue) query = query.Where(s => s.AcademicYear == academicYear);
+                if (term.HasValue) query = query.Where(s => s.Term == term);
+
+                var scores = await query.Select(s => s.Score).ToListAsync();
+
+                if (!scores.Any())
+                {
+                    return Ok(new { Message = "No scores found for the specified criteria" });
+                }
+
+                var statistics = new
+                {
+                    Count = scores.Count,
+                    Average = scores.Average(),
+                    Minimum = scores.Min(),
+                    Maximum = scores.Max(),
+                    PassingRate = scores.Count(s => s >= 60) * 100.0 / scores.Count,
+                    GradeDistribution = new
+                    {
+                        A = scores.Count(s => s >= 90),
+                        B = scores.Count(s => s >= 80 && s < 90),
+                        C = scores.Count(s => s >= 70 && s < 80),
+                        D = scores.Count(s => s >= 60 && s < 70),
+                        F = scores.Count(s => s < 60)
+                    }
+                };
+
+                return Ok(statistics);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calculating score statistics");
+                return StatusCode(500, "An error occurred while calculating statistics");
+            }
+        }
+
+        /// <summary>
+        /// Check if teacher can enter score for subject/grade - NEW ENDPOINT
+        /// </summary>
+        [HttpGet("teacher/{teacherId}/can-enter-score")]
+        [Authorize(Roles = "Admin,Teacher")]
+        public async Task<ActionResult<bool>> CanTeacherEnterScore(int teacherId, [FromQuery] int subjectId, [FromQuery] int gradeId)
+        {
+            try
+            {
+                var canEnter = await _examService.CanTeacherEnterScore(teacherId, subjectId, gradeId);
+                return Ok(canEnter);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking teacher authorization");
+                return StatusCode(500, "An error occurred while checking authorization");
             }
         }
 
@@ -234,6 +632,7 @@ namespace BluebirdCore.Controllers
         /// </summary>
         [HttpGet("types")]
         [Authorize(Roles = "Admin,Teacher,Staff")]
+        //[Authorize]
         public async Task<ActionResult<IEnumerable<ExamType>>> GetExamTypes()
         {
             try
@@ -278,10 +677,73 @@ namespace BluebirdCore.Controllers
         }
 
         /// <summary>
+        /// Update exam type - NEW ENDPOINT
+        /// </summary>
+        [HttpPut("types/{examTypeId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<ExamType>> UpdateExamType(int examTypeId, [FromBody] UpdateExamTypeDto updateExamTypeDto)
+        {
+            try
+            {
+                var examType = await _context.ExamTypes.FindAsync(examTypeId);
+                if (examType == null)
+                {
+                    return NotFound("Exam type not found");
+                }
+
+                examType.Name = updateExamTypeDto.Name;
+                examType.Description = updateExamTypeDto.Description;
+                examType.Order = updateExamTypeDto.Order;
+
+                await _context.SaveChangesAsync();
+                return Ok(examType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating exam type {ExamTypeId}", examTypeId);
+                return StatusCode(500, "An error occurred while updating the exam type");
+            }
+        }
+
+        /// <summary>
+        /// Delete exam type - NEW ENDPOINT
+        /// </summary>
+        [HttpDelete("types/{examTypeId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> DeleteExamType(int examTypeId)
+        {
+            try
+            {
+                var examType = await _context.ExamTypes.FindAsync(examTypeId);
+                if (examType == null)
+                {
+                    return NotFound("Exam type not found");
+                }
+
+                // Check if exam type is in use
+                var isInUse = await _context.ExamScores.AnyAsync(s => s.ExamTypeId == examTypeId);
+                if (isInUse)
+                {
+                    return BadRequest("Cannot delete exam type that is currently in use");
+                }
+
+                _context.ExamTypes.Remove(examType);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { Message = "Exam type deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting exam type {ExamTypeId}", examTypeId);
+                return StatusCode(500, "An error occurred while deleting the exam type");
+            }
+        }
+
+        /// <summary>
         /// Get teacher's assigned subjects and grades
         /// </summary>
         [HttpGet("teacher/assignments")]
-        [Authorize(Roles = "Teacher")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<TeacherAssignmentDto>>> GetTeacherAssignments()
         {
             try
@@ -357,6 +819,16 @@ namespace BluebirdCore.Controllers
                 HasTeacherRoleManual = hasTeacherRoleManual,
                 AllClaims = User?.Claims?.Select(c => new { c.Type, c.Value }).ToList()
             });
+        }
+
+        // Helper method for grade calculation
+        private string CalculateGrade(decimal score)
+        {
+            if (score >= 90) return "A";
+            if (score >= 80) return "B";
+            if (score >= 70) return "C";
+            if (score >= 60) return "D";
+            return "F";
         }
     }
 }

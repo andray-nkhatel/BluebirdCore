@@ -24,37 +24,43 @@ namespace BluebirdCore.Services
         }
 
         public async Task<ReportCard> GenerateReportCardAsync(int studentId, int academicYear, int term, int generatedBy)
-        {
-            var student = await _context.Students
-                .Include(s => s.Grade)
-                .FirstOrDefaultAsync(s => s.Id == studentId);
+{
+    var student = await _context.Students
+        .Include(s => s.Grade)
+        .FirstOrDefaultAsync(s => s.Id == studentId);
 
-            if (student == null) throw new ArgumentException("Student not found");
+    if (student == null) throw new ArgumentException("Student not found");
 
-            var scores = await _context.ExamScores
-                .Include(es => es.Subject)
-                .Include(es => es.ExamType)
-                .Where(es => es.StudentId == studentId && es.AcademicYear == academicYear && es.Term == term)
-                .ToListAsync();
+    // Also get the user who's generating this
+    var generatedByUser = await _context.Users.FindAsync(generatedBy);
 
-            var filePath = await _pdfService.GenerateReportCardPdfAsync(student, scores, academicYear, term);
+    var scores = await _context.ExamScores
+        .Include(es => es.Subject)
+        .Include(es => es.ExamType)
+        .Where(es => es.StudentId == studentId && es.AcademicYear == academicYear && es.Term == term)
+        .ToListAsync();
 
-            var reportCard = new ReportCard
-            {
-                StudentId = studentId,
-                GradeId = student.GradeId,
-                AcademicYear = academicYear,
-                Term = term,
-                FilePath = filePath,
-                GeneratedBy = generatedBy
-            };
+    var filePath = await _pdfService.GenerateReportCardPdfAsync(student, scores, academicYear, term);
 
-            _context.ReportCards.Add(reportCard);
-            await _context.SaveChangesAsync();
+    var reportCard = new ReportCard
+    {
+        StudentId = studentId,
+        GradeId = student.GradeId,
+        AcademicYear = academicYear,
+        Term = term,
+        FilePath = filePath,
+        GeneratedBy = generatedBy,
+        // Populate navigation properties with data we already have
+        Student = student,
+        Grade = student.Grade,
+        GeneratedByUser = generatedByUser
+    };
 
-            return reportCard;
-        }
+    _context.ReportCards.Add(reportCard);
+    await _context.SaveChangesAsync();
 
+    return reportCard;
+}
         public async Task<IEnumerable<ReportCard>> GenerateClassReportCardsAsync(int gradeId, int academicYear, int term, int generatedBy)
         {
             var students = await _context.Students
