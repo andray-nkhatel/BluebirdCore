@@ -25,10 +25,17 @@ namespace BluebirdCore.Controllers
         /// </summary>
         [HttpGet]
         [Authorize(Roles = "Admin,Teacher,Staff")]
-        public async Task<ActionResult<IEnumerable<SubjectDto>>> GetSubjects()
+        public async Task<ActionResult<IEnumerable<SubjectDto>>> GetSubjects([FromQuery] bool includeInactive = false)
         {
-            var subjects = await _context.Subjects
-                .Where(s => s.IsActive)
+            var query = _context.Subjects.AsQueryable();
+            
+            // Only filter by IsActive if includeInactive is false
+            if (!includeInactive)
+            {
+                query = query.Where(s => s.IsActive);
+            }
+            
+            var subjects = await query
                 .OrderBy(s => s.Name)
                 .ToListAsync();
 
@@ -55,6 +62,34 @@ namespace BluebirdCore.Controllers
             if (subject == null)
                 return NotFound();
 
+            return Ok(new SubjectDto
+            {
+                Id = subject.Id,
+                Name = subject.Name,
+                Code = subject.Code,
+                Description = subject.Description,
+                IsActive = subject.IsActive
+            });
+        }
+
+        /// <summary>
+/// Update subject (Admin only)
+/// </summary>
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<SubjectDto>> UpdateSubject(int id, [FromBody] UpdateSubjectDto updateSubjectDto)
+        {
+            var subject = await _context.Subjects.FindAsync(id);
+            if (subject == null)
+                return NotFound();
+        
+            subject.Name = updateSubjectDto.Name;
+            subject.Code = updateSubjectDto.Code;
+            subject.Description = updateSubjectDto.Description;
+            subject.IsActive = updateSubjectDto.IsActive;
+        
+            await _context.SaveChangesAsync();
+        
             return Ok(new SubjectDto
             {
                 Id = subject.Id,

@@ -332,7 +332,7 @@ namespace BluebirdCore.DTOs
         public List<SubjectDto> OptionalSubjects { get; set; }
         // Add other fields as needed
     }
-    
+
     public class UpdateGradeDto
     {
         public string Name { get; set; } = string.Empty;
@@ -340,5 +340,21 @@ namespace BluebirdCore.DTOs
         public int Level { get; set; }
         public SchoolSection Section { get; set; }
         public int? HomeroomTeacherId { get; set; }
+    }
+
+    public class UpdateSubjectDto
+    {
+        [Required(ErrorMessage = "Subject name is required")]
+        [StringLength(100, ErrorMessage = "Subject name cannot exceed 100 characters")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Subject code is required")]
+        [StringLength(10, ErrorMessage = "Subject code cannot exceed 10 characters")]
+        public string Code { get; set; } = string.Empty;
+
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
+        public string? Description { get; set; }
+
+        public bool IsActive { get; set; } = true;
     }
 }
