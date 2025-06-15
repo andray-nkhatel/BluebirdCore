@@ -93,6 +93,35 @@ namespace BluebirdCore.Controllers
         }
 
         /// <summary>
+        /// Toggle subject active status (Admin only)
+        /// </summary>
+        [HttpPatch("{id}/toggle")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<SubjectDto>> ToggleSubjectStatus(int id)
+        {
+            var subject = await _context.Subjects.FindAsync(id);
+            if (subject == null)
+                return NotFound(new { message = "Subject not found" });
+
+            // Toggle the IsActive status
+            subject.IsActive = !subject.IsActive;
+            
+            // Update timestamp if your entity has one
+            // subject.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new SubjectDto
+            {
+                Id = subject.Id,
+                Name = subject.Name,
+                Code = subject.Code,
+                Description = subject.Description,
+                IsActive = subject.IsActive
+            });
+        }
+
+        /// <summary>
         /// Assign subject to grade (Admin only)
         /// </summary>
         [HttpPost("{subjectId}/assign-to-grade/{gradeId}")]
