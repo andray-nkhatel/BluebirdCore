@@ -174,7 +174,7 @@ namespace BluebirdCore.DTOs
         public int Term { get; set; }
     }
 
-     // For updating existing scores
+    // For updating existing scores
     public class UpdateExamScoreDto
     {
         [Required]
@@ -182,7 +182,7 @@ namespace BluebirdCore.DTOs
         public decimal Score { get; set; }
     }
 
-   // For updating exam types
+    // For updating exam types
     public class UpdateExamTypeDto
     {
         [Required]
@@ -311,10 +311,10 @@ namespace BluebirdCore.DTOs
         [Required]
         public DateTime EndDate { get; set; }
     }
-    
+
     public class UpdateStudentDto
     {
-    
+
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string MiddleName { get; set; }
@@ -331,5 +331,14 @@ namespace BluebirdCore.DTOs
         public bool IsArchived { get; set; }
         public List<SubjectDto> OptionalSubjects { get; set; }
         // Add other fields as needed
+    }
+    
+    public class UpdateGradeDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Stream { get; set; } = string.Empty;
+        public int Level { get; set; }
+        public SchoolSection Section { get; set; }
+        public int? HomeroomTeacherId { get; set; }
     }
 }

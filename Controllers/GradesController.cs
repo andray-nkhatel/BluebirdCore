@@ -20,38 +20,34 @@ namespace BluebirdCore.Controllers
             _context = context;
         }
 
-        /// <summary>
-        /// Get all grades
-        /// </summary>
-        [HttpGet]
-        [Authorize(Roles = "Admin,Teacher,Staff")]
-        public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades()
-        {
-            var grades = await _context.Grades
-                .Include(g => g.HomeroomTeacher)
-                .Include(g => g.Students)
-                .Where(g => g.IsActive)
-                .OrderBy(g => g.Level)
-                .ThenBy(g => g.Stream)
-                .ToListAsync();
+     [HttpGet]
+[Authorize(Roles = "Admin,Teacher,Staff")]
+public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades([FromQuery] bool includeInactive = false)
+{
+    var grades = await _context.Grades
+        .Include(g => g.HomeroomTeacher)
+        .Include(g => g.Students)
+        .Where(g => includeInactive || g.IsActive) // Single condition
+        .OrderBy(g => g.Level)
+        .ThenBy(g => g.Stream)
+        .ToListAsync();
 
-            var gradeDtos = grades.Select(g => new GradeDto
-            {
-                Id = g.Id,
-                Name = g.Name,
-                Stream = g.Stream,
-                FullName = g.FullName,
-                Level = g.Level,
-                Section = g.Section.ToString(),
-                HomeroomTeacherId = g.HomeroomTeacherId,
-                HomeroomTeacherName = g.HomeroomTeacher?.FullName,
-                IsActive = g.IsActive,
-                StudentCount = g.Students.Count(s => !s.IsArchived)
-            });
+    var gradeDtos = grades.Select(g => new GradeDto
+    {
+        Id = g.Id,
+        Name = g.Name,
+        Stream = g.Stream,
+        FullName = g.FullName,
+        Level = g.Level,
+        Section = g.Section.ToString(),
+        HomeroomTeacherId = g.HomeroomTeacherId,
+        HomeroomTeacherName = g.HomeroomTeacher?.FullName,
+        IsActive = g.IsActive,
+        StudentCount = g.Students.Count(s => !s.IsArchived)
+    });
 
-            return Ok(gradeDtos);
-        }
-
+    return Ok(gradeDtos);
+}
         /// <summary>
         /// Get grade by ID
         /// </summary>
@@ -59,6 +55,9 @@ namespace BluebirdCore.Controllers
         [Authorize(Roles = "Admin,Teacher,Staff")]
         public async Task<ActionResult<GradeDto>> GetGrade(int id)
         {
+
+
+
             var grade = await _context.Grades
                 .Include(g => g.HomeroomTeacher)
                 .Include(g => g.Students)
@@ -131,6 +130,62 @@ namespace BluebirdCore.Controllers
 
             return Ok(new { message = "Homeroom teacher assigned successfully" });
         }
-    }
 
+
+        /// Update grade (Admin only)
+        /// </summary>
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<GradeDto>> UpdateGrade(int id, [FromBody] UpdateGradeDto updateGradeDto)
+        {
+            var grade = await _context.Grades
+                .Include(g => g.HomeroomTeacher)
+                .Include(g => g.Students)
+                .FirstOrDefaultAsync(g => g.Id == id);
+                
+            if (grade == null)
+                return NotFound();
+        
+            grade.Name = updateGradeDto.Name;
+            grade.Stream = updateGradeDto.Stream;
+            grade.Level = updateGradeDto.Level;
+            grade.Section = updateGradeDto.Section;
+            grade.HomeroomTeacherId = updateGradeDto.HomeroomTeacherId;
+        
+            await _context.SaveChangesAsync();
+        
+            return Ok(new GradeDto
+            {
+                Id = grade.Id,
+                Name = grade.Name,
+                Stream = grade.Stream,
+                FullName = grade.FullName,
+                Level = grade.Level,
+                Section = grade.Section.ToString(),
+                HomeroomTeacherId = grade.HomeroomTeacherId,
+                HomeroomTeacherName = grade.HomeroomTeacher?.FullName,
+                IsActive = grade.IsActive,
+                StudentCount = grade.Students.Count(s => !s.IsArchived)
+            });
+        }
+        /// <summary>
+        /// Toggle grade status (Admin only)
+        /// </summary>
+        [HttpPatch("{id}/toggle-status")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> ToggleGradeStatus(int id)
+        {
+            var grade = await _context.Grades.FindAsync(id);
+            if (grade == null)
+                return NotFound();
+
+            grade.IsActive = !grade.IsActive;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Grade status updated successfully", isActive = grade.IsActive });
+        }
+
+
+
+    }
 }
