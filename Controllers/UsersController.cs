@@ -112,10 +112,12 @@ namespace BluebirdCore.Controllers
             var user = await _userService.GetUserByIdAsync(id);
             if (user == null)
                 return NotFound();
-
+            user.Username = userDto.Username;
             user.FullName = userDto.FullName;
             user.Email = userDto.Email;
             user.IsActive = userDto.IsActive;
+            user.Role = Enum.Parse<UserRole>(userDto.Role, true);
+            // Note: Password is not updated here, it should be handled separately
 
             var updatedUser = await _userService.UpdateUserAsync(user);
 
