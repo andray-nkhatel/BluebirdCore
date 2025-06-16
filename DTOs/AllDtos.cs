@@ -357,4 +357,12 @@ namespace BluebirdCore.DTOs
 
         public bool IsActive { get; set; } = true;
     }
+
+    // UpdateAcademicYearDto.cs
+public class UpdateAcademicYearDto
+{
+    public string Name { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+}
 }

@@ -664,6 +664,7 @@ namespace BluebirdCore.Controllers
                     Name = createExamTypeDto.Name,
                     Description = createExamTypeDto.Description,
                     Order = createExamTypeDto.Order
+                    //Order = await _examService.GetNextOrderValueAsync()
                 };
 
                 var createdExamType = await _examService.CreateExamTypeAsync(examType);
