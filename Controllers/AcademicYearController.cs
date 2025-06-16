@@ -12,10 +12,12 @@ namespace BluebirdCore.Controllers
     public class AcademicYearsController : ControllerBase
     {
         private readonly IAcademicYearService _academicYearService;
+        private readonly ILogger<AcademicYearsController> _logger;
 
-        public AcademicYearsController(IAcademicYearService academicYearService)
+        public AcademicYearsController(IAcademicYearService academicYearService, ILogger<AcademicYearsController> logger)
         {
             _academicYearService = academicYearService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -27,6 +29,20 @@ namespace BluebirdCore.Controllers
         {
             var academicYears = await _academicYearService.GetAllAcademicYearsAsync();
             return Ok(academicYears);
+        }
+
+        /// <summary>
+        /// Get academic year by ID
+        /// </summary>
+        [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Teacher,Staff")]
+        public async Task<ActionResult<AcademicYear>> GetAcademicYear(int id)
+        {
+            var academicYear = await _academicYearService.GetAcademicYearByIdAsync(id);
+            if (academicYear == null)
+                return NotFound();
+
+            return Ok(academicYear);
         }
 
         /// <summary>
@@ -50,15 +66,83 @@ namespace BluebirdCore.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<AcademicYear>> CreateAcademicYear([FromBody] CreateAcademicYearDto createAcademicYearDto)
         {
-            var academicYear = new AcademicYear
+            try
             {
-                Name = createAcademicYearDto.Name,
-                StartDate = createAcademicYearDto.StartDate,
-                EndDate = createAcademicYearDto.EndDate
-            };
+                if (createAcademicYearDto == null)
+                    return BadRequest("Academic year data is required");
 
-            var createdYear = await _academicYearService.CreateAcademicYearAsync(academicYear);
-            return CreatedAtAction(nameof(GetActiveAcademicYear), createdYear);
+                var academicYear = new AcademicYear
+                {
+                    Name = createAcademicYearDto.Name,
+                    StartDate = createAcademicYearDto.StartDate,
+                    EndDate = createAcademicYearDto.EndDate
+                };
+
+                var createdYear = await _academicYearService.CreateAcademicYearAsync(academicYear);
+                return CreatedAtAction(nameof(GetAcademicYear), new { id = createdYear.Id }, createdYear);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating academic year");
+                return StatusCode(500, "An error occurred while creating the academic year");
+            }
+        }
+
+        /// <summary>
+        /// Update academic year (Admin only)
+        /// </summary>
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<AcademicYear>> UpdateAcademicYear(int id, [FromBody] UpdateAcademicYearDto updateAcademicYearDto)
+        {
+            try
+            {
+                if (updateAcademicYearDto == null)
+                    return BadRequest("Academic year data is required");
+
+                var existingAcademicYear = await _academicYearService.GetAcademicYearByIdAsync(id);
+                if (existingAcademicYear == null)
+                    return NotFound();
+
+                // Update properties
+                existingAcademicYear.Name = updateAcademicYearDto.Name;
+                existingAcademicYear.StartDate = updateAcademicYearDto.StartDate;
+                existingAcademicYear.EndDate = updateAcademicYearDto.EndDate;
+
+                var updatedYear = await _academicYearService.UpdateAcademicYearAsync(existingAcademicYear);
+                return Ok(updatedYear);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating academic year with ID {Id}", id);
+                return StatusCode(500, "An error occurred while updating the academic year");
+            }
+        }
+
+        /// <summary>
+        /// Delete academic year (Admin only)
+        /// </summary>
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> DeleteAcademicYear(int id)
+        {
+            try
+            {
+                var existingAcademicYear = await _academicYearService.GetAcademicYearByIdAsync(id);
+                if (existingAcademicYear == null)
+                    return NotFound();
+
+                var success = await _academicYearService.DeleteAcademicYearAsync(id);
+                if (!success)
+                    return BadRequest("Failed to delete academic year");
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting academic year with ID {Id}", id);
+                return StatusCode(500, "An error occurred while deleting the academic year");
+            }
         }
 
         /// <summary>
