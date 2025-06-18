@@ -303,52 +303,88 @@ namespace BluebirdCore.Services
                     container.Page(page =>
                     {
                         ConfigureBasicPage(page);
-                        
-                        page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
+
+                        // page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
+                        // {
+                        //     column.Item().Text("CHUDLEIGH HOUSE SCHOOL").FontSize(18).Bold().AlignCenter();
+                        //     column.Item().Text("PRIMARY SCHOOL REPORT CARD").FontSize(14).AlignCenter();
+                        //     column.Item().PaddingTop(20).LineHorizontal(1);
+
+                        //     AddStudentInformation(column, student, academicYear, term);
+
+                        //     column.Item().PaddingTop(15).LineHorizontal(1);
+
+                        //     column.Item().PaddingTop(15).Text("ACADEMIC PERFORMANCE").FontSize(14).Bold();
+
+                        //     AddPrimaryScoreTable(column, examData.Take(halfCount).ToList(), true);
+
+                        //     // Comments from End-of-Term exams (first batch)
+                        //     //AddEndOfTermCommentsSection(column, examData.Take(halfCount).ToList(), "PART 1");
+                        // });
+
+                        page.Header()
+                        .BorderTop(5)
+                        .BorderRight(5)
+                        .BorderLeft(5)
+                        .BorderBottom(0)
+                        .BorderColor(Colors.Blue.Darken2)
+                        .PaddingTop(20)
+                        .PaddingBottom(5)
+                        .PaddingLeft(20)
+                        .PaddingRight(20)
+                        .Column(column =>
                         {
                             column.Item().Text("CHUDLEIGH HOUSE SCHOOL").FontSize(18).Bold().AlignCenter();
                             column.Item().Text("PRIMARY SCHOOL REPORT CARD").FontSize(14).AlignCenter();
-                            column.Item().PaddingTop(20).LineHorizontal(1);
-
+                            column.Item().PaddingTop(10).LineHorizontal(1);
                             AddStudentInformation(column, student, academicYear, term);
-                            
-                            column.Item().PaddingTop(15).LineHorizontal(1);
+                            column.Item().PaddingTop(5).LineHorizontal(1);
+                            column.Item().PaddingTop(5).Text("ACADEMIC PERFORMANCE").FontSize(14).Bold();
+                        });
 
-                            column.Item().PaddingTop(15).Text("ACADEMIC PERFORMANCE").FontSize(14).Bold();
-                            
-                            AddPrimaryScoreTable(column, examData.Take(halfCount).ToList(), true);
-
-                            // Comments from End-of-Term exams (first batch)
-                            //AddEndOfTermCommentsSection(column, examData.Take(halfCount).ToList(), "PART 1");
+                        page.Content()
+                        // .Border(5)
+                        .BorderTop(0)
+                        .BorderBottom(5)
+                        .BorderLeft(5)
+                        .BorderRight(5)
+                        .BorderColor(Colors.Blue.Darken2)
+                        .PaddingTop(3)
+                        .PaddingLeft(10)
+                        .PaddingRight(10).Column(column =>
+                        {
+                            // Full table - will auto-break across pages
+                            AddPrimaryScoreTable(column, examData, true);
+                            AddOverallSummary(column, examData);
                         });
 
                         // AddPageFooter(page, 1);
                     });
 
                     // PAGE 2: Scores Continued & Overall Summary
-                    container.Page(page =>
-                    {
-                        ConfigureBasicPage(page);
+                    // container.Page(page =>
+                    // {
+                    //     ConfigureBasicPage(page);
                         
-                         page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
-                        {
-                            column.Item().Text("CHUDLEIGH HOUSE SCHOOL").FontSize(18).Bold().AlignCenter();
-                            column.Item().Text("PRIMARY SCHOOL REPORT CARD - Continued").FontSize(14).AlignCenter();
-                            column.Item().PaddingTop(20).LineHorizontal(1);
+                    //      page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
+                    //     {
+                    //         column.Item().Text("CHUDLEIGH HOUSE SCHOOL").FontSize(18).Bold().AlignCenter();
+                    //         column.Item().Text("PRIMARY SCHOOL REPORT CARD - Continued").FontSize(14).AlignCenter();
+                    //         column.Item().PaddingTop(20).LineHorizontal(1);
 
-                            column.Item().PaddingTop(15).Text("ACADEMIC PERFORMANCE - Continued").FontSize(14).Bold();
+                    //         column.Item().PaddingTop(15).Text("ACADEMIC PERFORMANCE - Continued").FontSize(14).Bold();
                             
-                            AddPrimaryScoreTable(column, examData.Skip(halfCount).ToList(), false);
+                    //         AddPrimaryScoreTable(column, examData.Skip(halfCount).ToList(), false);
 
-                            // Overall Summary
-                            AddOverallSummary(column, examData);
+                    //         // Overall Summary
+                    //         AddOverallSummary(column, examData);
 
-                            // Comments from End-of-Term exams (second batch)
-                            AddEndOfTermCommentsSection(column, examData.Skip(halfCount).ToList(), "PART 2");
-                        });
+                    //         // Comments from End-of-Term exams (second batch)
+                    //         AddEndOfTermCommentsSection(column, examData.Skip(halfCount).ToList(), "PART 2");
+                    //     });
 
-                        //AddPageFooter(page, 2);
-                    });
+                    //     //AddPageFooter(page, 2);
+                    // });
 
                     // PAGE 3: Teacher Comments & Signatures
                     container.Page(page =>
@@ -364,25 +400,25 @@ namespace BluebirdCore.Services
                             var overallAverage = CalculateOverallAverage(examData);
 
                             // Teacher's Comprehensive Assessment
-                            column.Item().PaddingTop(20).Text("CLASS TEACHER'S COMPREHENSIVE ASSESSMENT").FontSize(14).Bold();
-                            column.Item().PaddingTop(10)
-                                //.Height(80)
-                                //.Padding(20)
-                                // .Padding(15)
-                                // .BorderHorizontal(1)
-                                // .BorderVertical(1)
-                                .Background(Colors.Grey.Lighten3)
-                                .Text(GenerateDetailedTeacherComment(overallAverage, student.FirstName, examData));
+                            // column.Item().PaddingTop(20).Text("CLASS TEACHER'S COMPREHENSIVE ASSESSMENT").FontSize(14).Bold();
+                            // column.Item().PaddingTop(10)
+                            //     //.Height(80)
+                            //     //.Padding(20)
+                            //     // .Padding(15)
+                            //     // .BorderHorizontal(1)
+                            //     // .BorderVertical(1)
+                            //     .Background(Colors.Grey.Lighten3)
+                            //     .Text(GenerateDetailedTeacherComment(overallAverage, student.FirstName, examData));
 
-                            // Subject Recommendations
-                            column.Item().PaddingTop(5).Text("SUBJECT-SPECIFIC RECOMMENDATIONS").FontSize(12).Bold();
-                            column.Item().PaddingTop(5)
-                                // .BorderHorizontal(1)
-                                // .BorderVertical(1)
-                                //.Padding(20)
-                                //.Height(80)
-                                .Background(Colors.Grey.Lighten3)
-                                .Text(GenerateSubjectRecommendations(examData, student.FirstName));
+                            // // Subject Recommendations
+                            // column.Item().PaddingTop(5).Text("SUBJECT-SPECIFIC RECOMMENDATIONS").FontSize(12).Bold();
+                            // column.Item().PaddingTop(5)
+                            //     // .BorderHorizontal(1)
+                            //     // .BorderVertical(1)
+                            //     //.Padding(20)
+                            //     //.Height(80)
+                            //     .Background(Colors.Grey.Lighten3)
+                            //     .Text(GenerateSubjectRecommendations(examData, student.FirstName));
 
                             AddAdministrativeSection(column, student.Grade);
                             AddPrimaryGradingScale(column);
@@ -541,7 +577,7 @@ namespace BluebirdCore.Services
                 row.RelativeItem().Column(col =>
                 {
                     col.Item().Text($"Class Teacher: {student.Grade?.HomeroomTeacher?.FullName ?? "Not Assigned"}").Bold();
-                    col.Item().Text($"Report Date: {DateTime.Now:dd/MM/yyyy}");
+                    col.Item().Text($"Report Date: {DateTime.Now:dd/MM/yyyy}").Bold();
                     
                 });
             });
@@ -753,22 +789,16 @@ namespace BluebirdCore.Services
         {
             column.Item().PaddingTop(25).Text("ADMINISTRATIVE APPROVAL").FontSize(14).Bold();
             
-            column.Item().PaddingTop(15).Row(row =>
+            column.Item().Row(row =>
             {
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().Text("HomeRoom Teacher:");
-                    col.Item().PaddingTop(5).Text("_________________________");
-                    col.Item().PaddingTop(5).Text($"Name: {grade?.HomeroomTeacher?.FullName ?? "Not Assigned"}");
-                    col.Item().PaddingTop(5).Text($"Date: {DateTime.Now:dd/MM/yyyy}");
-                });
                 
-                row.RelativeItem().Column(col =>
+                
+                row.RelativeItem().Background(Colors.Grey.Lighten3).Width(100).Padding(10).Column(col =>
                 {
-                    col.Item().Text("Head Teacher:");
-                    col.Item().PaddingTop(5).Text("_________________________");
-                    col.Item().PaddingTop(5).Text("Name: ___________________");
-                    col.Item().PaddingTop(5).Text("Date: ___________________");
+                    col.Item().Text("Signature:").AlignCenter().Bold();
+                    col.Item().PaddingTop(15).LineHorizontal(1);
+                    // col.Item().PaddingTop(5).Text("Name: ___________________").AlignCenter();
+                    // col.Item().PaddingTop(5).Text("Date: ___________________").AlignCenter();
                 });
             });
         }
@@ -819,11 +849,50 @@ namespace BluebirdCore.Services
         private static void AddPrimaryGradingScale(ColumnDescriptor column)
         {
             column.Item().PaddingTop(25).Text("PRIMARY SCHOOL GRADING SCALE").FontSize(12).Bold();
-            column.Item().PaddingTop(10).Column(col =>
+
+            column.Item().Table(table =>
             {
-                col.Item().Text("A (80-100) - Excellent | B (70-79) - Very Good");
-                col.Item().Text("C (60-69) - Good | D (50-59) - Satisfactory | F (0-49) - Needs Improvement");
+                table.ColumnsDefinition(columns =>
+                   {
+                       columns.ConstantColumn(150);
+                       columns.RelativeColumn(2);
+                       columns.RelativeColumn(3);
+                   });
+
+                table.Cell().ColumnSpan(3)
+               .Background(Colors.Grey.Lighten2).Element(CellStyle)
+               .Text("Grading Scale").AlignCenter();
+
+                table.Cell().Element(CellStyle).Text("Grade").SemiBold();
+                table.Cell().Element(CellStyle).Text("Range").SemiBold();
+                table.Cell().Element(CellStyle).Text("Remark").SemiBold();
+
+                table.Cell().Element(CellStyle).Text("A");
+                table.Cell().Element(CellStyle).Text("(80-100)");
+                table.Cell().Element(CellStyle).Text("Excellent");
+
+                table.Cell().Element(CellStyle).Text("B");
+                table.Cell().Element(CellStyle).Text("(70-79)");
+                table.Cell().Element(CellStyle).Text("Very Good");
+
+                table.Cell().Element(CellStyle).Text("C");
+                table.Cell().Element(CellStyle).Text("(60-69)");
+                table.Cell().Element(CellStyle).Text("Good");
+
+                table.Cell().Element(CellStyle).Text("D");
+                table.Cell().Element(CellStyle).Text("(50-59)");
+                table.Cell().Element(CellStyle).Text("Satisfactory");
+                
+                table.Cell().Element(CellStyle).Text("F");
+                table.Cell().Element(CellStyle).Text("(0-49)");
+                table.Cell().Element(CellStyle).Text("Needs Improvement");
             });
+
+            // column.Item().PaddingTop(10).Column(col =>
+            // {
+            //     col.Item().Text("A (80-100) - Excellent | B (70-79) - Very Good");
+            //     col.Item().Text("C (60-69) - Good | D (50-59) - Satisfactory | F (0-49) - Needs Improvement");
+            // });
         }
 
         private static void AddSecondaryGradingScale(ColumnDescriptor column)
