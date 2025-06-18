@@ -20,12 +20,18 @@ namespace BluebirdCore.Entities
         public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
         public int RecordedBy { get; set; } // Teacher who entered the score
         
+        // Comment fields
+        [StringLength(1000)] // Adjust max length as needed
+        public string? Comments { get; set; }
+        public DateTime? CommentsUpdatedAt { get; set; }
+        public int? CommentsUpdatedBy { get; set; } // Track who last updated comments
+        
         // Navigation properties
         public virtual Student Student { get; set; }
         public virtual Subject Subject { get; set; }
         public virtual ExamType ExamType { get; set; }
         public virtual Grade Grade { get; set; }
         public virtual User RecordedByTeacher { get; set; }
+        public virtual User? CommentsUpdatedByTeacher { get; set; }
     }
-
 }

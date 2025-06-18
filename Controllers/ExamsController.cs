@@ -52,7 +52,11 @@ namespace BluebirdCore.Controllers
                     AcademicYear = s.AcademicYear,
                     Term = s.Term,
                     RecordedAt = s.RecordedAt,
-                    RecordedByName = s.RecordedByTeacher?.FullName
+                    RecordedByName = s.RecordedByTeacher?.FullName,
+                    // Add comment fields
+                    Comments = s.Comments,
+                    CommentsUpdatedAt = s.CommentsUpdatedAt,
+                    CommentsUpdatedByName = s.CommentsUpdatedByTeacher?.FullName
                 });
 
                 return Ok(scoreDtos);
@@ -87,7 +91,12 @@ namespace BluebirdCore.Controllers
                     AcademicYear = s.AcademicYear,
                     Term = s.Term,
                     RecordedAt = s.RecordedAt,
-                    RecordedByName = s.RecordedByTeacher?.FullName
+                    RecordedByName = s.RecordedByTeacher?.FullName,
+                    // Add comment fields
+                    Comments = s.Comments,
+                    CommentsUpdatedAt = s.CommentsUpdatedAt,
+                    CommentsUpdatedByName = s.CommentsUpdatedByTeacher?.FullName
+
                 });
 
                 return Ok(scoreDtos);
@@ -296,7 +305,10 @@ namespace BluebirdCore.Controllers
                         Score = scoreDto.Score,
                         AcademicYear = scoreDto.AcademicYear,
                         Term = scoreDto.Term,
-                        RecordedBy = teacherId
+                        RecordedBy = teacherId,
+                        Comments = scoreDto.Comments,
+                        CommentsUpdatedAt = !string.IsNullOrWhiteSpace(scoreDto.Comments) ? DateTime.UtcNow : null,
+                        CommentsUpdatedBy = !string.IsNullOrWhiteSpace(scoreDto.Comments) ? teacherId : null
                     };
 
                     var createdScore = await _examService.CreateOrUpdateScoreAsync(examScore);
@@ -311,7 +323,9 @@ namespace BluebirdCore.Controllers
                         Score = createdScore.Score,
                         AcademicYear = createdScore.AcademicYear,
                         Term = createdScore.Term,
-                        RecordedAt = createdScore.RecordedAt
+                        RecordedAt = createdScore.RecordedAt,
+                        Comments = createdScore.Comments,
+                        CommentsUpdatedAt = createdScore.CommentsUpdatedAt
                     });
                 }
 
@@ -327,60 +341,123 @@ namespace BluebirdCore.Controllers
         /// <summary>
         /// Update existing score - NEW ENDPOINT
         /// </summary>
-        [HttpPut("scores/{scoreId}")]
-        [Authorize(Roles = "Teacher")]
-        public async Task<ActionResult<ExamScoreDto>> UpdateScore(int scoreId, [FromBody] UpdateExamScoreDto scoreDto)
+    [HttpPut("scores/{scoreId}")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<ActionResult<ExamScoreDto>> UpdateScore(int scoreId, [FromBody] UpdateExamScoreDto scoreDto)
+    {
+        try
         {
-            try
+            _logger.LogInformation("UpdateScore called for ScoreId: {ScoreId} by user: {UserId}", scoreId, User?.Identity?.Name);
+
+            // Validate input
+            if (scoreDto == null)
             {
-                var teacherIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(teacherIdClaim) || !int.TryParse(teacherIdClaim, out int teacherId))
-                {
-                    return Unauthorized("Invalid teacher credentials");
-                }
+                _logger.LogWarning("UpdateScore called with null scoreDto for ScoreId: {ScoreId}", scoreId);
+                return BadRequest("Score data is required");
+            }
 
-                var existingScore = await _context.ExamScores
-                    .Include(s => s.Student)
-                    .FirstOrDefaultAsync(s => s.Id == scoreId);
+            var teacherIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(teacherIdClaim) || !int.TryParse(teacherIdClaim, out int teacherId))
+            {
+                _logger.LogError("Could not parse teacher ID from claims. Claim value: {ClaimValue}", teacherIdClaim);
+                return Unauthorized("Invalid teacher credentials");
+            }
 
-                if (existingScore == null)
-                {
-                    return NotFound("Score not found");
-                }
+            var existingScore = await _context.ExamScores
+                .Include(s => s.Student)
+                .Include(s => s.Subject)
+                .Include(s => s.ExamType)
+                .Include(s => s.RecordedByTeacher)
+                .Include(s => s.CommentsUpdatedByTeacher)
+                .FirstOrDefaultAsync(s => s.Id == scoreId);
 
-                // Check authorization
-                var canEnter = await _examService.CanTeacherEnterScore(teacherId, existingScore.SubjectId, existingScore.Student.GradeId);
-                if (!canEnter)
-                {
-                    return Forbid("Not authorized to update this score");
-                }
+            if (existingScore == null)
+            {
+                _logger.LogWarning("Score not found with ID: {ScoreId}", scoreId);
+                return NotFound("Score not found");
+            }
 
+            _logger.LogInformation("Found existing score for Student: {StudentName}, Subject: {SubjectName}", 
+                existingScore.Student?.FullName, existingScore.Subject?.Name);
+
+            // Check authorization
+            var canEnter = await _examService.CanTeacherEnterScore(teacherId, existingScore.SubjectId, existingScore.Student.GradeId);
+            if (!canEnter)
+            {
+                _logger.LogWarning("Teacher {TeacherId} not authorized to update score {ScoreId} for SubjectId: {SubjectId}, GradeId: {GradeId}", 
+                    teacherId, scoreId, existingScore.SubjectId, existingScore.Student.GradeId);
+                return Forbid("Not authorized to update this score");
+            }
+
+            // Track if comments were updated
+            bool commentsUpdated = false;
+
+            // Update score
+            if (existingScore.Score != scoreDto.Score)
+            {
+                _logger.LogInformation("Updating score from {OldScore} to {NewScore} for ScoreId: {ScoreId}", 
+                    existingScore.Score, scoreDto.Score, scoreId);
                 existingScore.Score = scoreDto.Score;
                 existingScore.RecordedAt = DateTime.UtcNow;
                 existingScore.RecordedBy = teacherId;
-
-                await _context.SaveChangesAsync();
-
-                var responseDto = new ExamScoreDto
-                {
-                    Id = existingScore.Id,
-                    StudentId = existingScore.StudentId,
-                    SubjectId = existingScore.SubjectId,
-                    ExamTypeId = existingScore.ExamTypeId,
-                    Score = existingScore.Score,
-                    AcademicYear = existingScore.AcademicYear,
-                    Term = existingScore.Term,
-                    RecordedAt = existingScore.RecordedAt
-                };
-
-                return Ok(responseDto);
             }
-            catch (Exception ex)
+
+            // Update comments if provided and different from existing
+            if (scoreDto.Comments != existingScore.Comments)
             {
-                _logger.LogError(ex, "Error updating score {ScoreId}", scoreId);
-                return StatusCode(500, "An error occurred while updating the score");
+                _logger.LogInformation("Updating comments for ScoreId: {ScoreId}", scoreId);
+                existingScore.Comments = scoreDto.Comments;
+                existingScore.CommentsUpdatedAt = DateTime.UtcNow;
+                existingScore.CommentsUpdatedBy = teacherId;
+                commentsUpdated = true;
             }
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Score {ScoreId} updated successfully", scoreId);
+
+            // Reload to get updated navigation properties
+            await _context.Entry(existingScore)
+                .Reference(s => s.CommentsUpdatedByTeacher)
+                .LoadAsync();
+
+            var responseDto = new ExamScoreDto
+            {
+                Id = existingScore.Id,
+                StudentId = existingScore.StudentId,
+                StudentName = existingScore.Student?.FullName,
+                SubjectId = existingScore.SubjectId,
+                SubjectName = existingScore.Subject?.Name,
+                ExamTypeId = existingScore.ExamTypeId,
+                ExamTypeName = existingScore.ExamType?.Name,
+                Score = existingScore.Score,
+                AcademicYear = existingScore.AcademicYear,
+                Term = existingScore.Term,
+                RecordedAt = existingScore.RecordedAt,
+                RecordedByName = existingScore.RecordedByTeacher?.FullName,
+                Comments = existingScore.Comments,
+                CommentsUpdatedAt = existingScore.CommentsUpdatedAt,
+                CommentsUpdatedByName = existingScore.CommentsUpdatedByTeacher?.FullName
+            };
+
+            _logger.LogInformation("Returning updated score response: {@ResponseDto}", responseDto);
+            return Ok(responseDto);
         }
+        catch (ArgumentException ex)
+        {
+            _logger.LogError(ex, "Invalid argument in UpdateScore for ScoreId: {ScoreId}", scoreId);
+            return BadRequest(ex.Message);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Unauthorized access in UpdateScore for ScoreId: {ScoreId}", scoreId);
+            return Unauthorized("Access denied");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error updating score {ScoreId}", scoreId);
+            return StatusCode(500, "An unexpected error occurred while updating the score");
+        }
+    }
 
         /// <summary>
         /// Delete score - NEW ENDPOINT
@@ -504,129 +581,137 @@ namespace BluebirdCore.Controllers
         public async Task<ActionResult<ExamScoreDto>> CreateOrUpdateScore([FromBody] CreateExamScoreDto scoreDto)
         {
             try
-            {
-                _logger.LogInformation("CreateOrUpdateScore called by user: {UserId}", User?.Identity?.Name);
-                _logger.LogInformation("User authenticated: {IsAuthenticated}", User?.Identity?.IsAuthenticated);
-                _logger.LogInformation("User role claims: {Claims}", string.Join(", ", User?.Claims?.Select(c => $"{c.Type}:{c.Value}") ?? new string[0]));
+        {
+        _logger.LogInformation("CreateOrUpdateScore called by user: {UserId}", User?.Identity?.Name);
+        _logger.LogInformation("User authenticated: {IsAuthenticated}", User?.Identity?.IsAuthenticated);
+        _logger.LogInformation("User role claims: {Claims}", string.Join(", ", User?.Claims?.Select(c => $"{c.Type}:{c.Value}") ?? new string[0]));
 
-                // Manual role check since [Authorize(Roles = "Teacher")] isn't working
-                var hasTeacherRole = User?.Claims?.Any(c => 
-                    (c.Type == ClaimTypes.Role || c.Type == "role") && 
-                    c.Value.Equals("Teacher", StringComparison.OrdinalIgnoreCase)) ?? false;
+        // Manual role check since [Authorize(Roles = "Teacher")] isn't working
+        var hasTeacherRole = User?.Claims?.Any(c => 
+            (c.Type == ClaimTypes.Role || c.Type == "role") && 
+            c.Value.Equals("Teacher", StringComparison.OrdinalIgnoreCase)) ?? false;
 
-                if (!hasTeacherRole)
-                {
-                    _logger.LogWarning("User does not have Teacher role. Claims: {Claims}", 
-                        string.Join(", ", User?.Claims?.Select(c => $"{c.Type}:{c.Value}") ?? new string[0]));
-                    return StatusCode(403, "Teacher role required");
-                }
-
-                // Validate input
-                if (scoreDto == null)
-                {
-                    _logger.LogWarning("CreateOrUpdateScore called with null scoreDto");
-                    return BadRequest("Score data is required");
-                }
-
-                // Get teacher ID from claims with better error handling
-                var teacherIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(teacherIdClaim) || !int.TryParse(teacherIdClaim, out int teacherId))
-                {
-                    _logger.LogError("Could not parse teacher ID from claims. Claim value: {ClaimValue}", teacherIdClaim);
-                    return Unauthorized("Invalid teacher credentials");
-                }
-
-                _logger.LogInformation("Processing score entry for TeacherId: {TeacherId}, StudentId: {StudentId}, SubjectId: {SubjectId}", 
-                    teacherId, scoreDto.StudentId, scoreDto.SubjectId);
-
-                // Get student's grade to check authorization
-                var student = await _context.Students.FindAsync(scoreDto.StudentId);
-                if (student == null)
-                {
-                    _logger.LogWarning("Student not found with ID: {StudentId}", scoreDto.StudentId);
-                    return NotFound("Student not found");
-                }
-
-                _logger.LogInformation("Found student: {StudentName}, GradeId: {GradeId}", student.FullName, student.GradeId);
-
-                // Check if teacher can enter score for this subject/grade
-                var canEnter = await _examService.CanTeacherEnterScore(teacherId, scoreDto.SubjectId, student.GradeId);
-                if (!canEnter)
-                {
-                    _logger.LogWarning("Teacher {TeacherId} not authorized to enter scores for SubjectId: {SubjectId}, GradeId: {GradeId}", 
-                        teacherId, scoreDto.SubjectId, student.GradeId);
-                    return StatusCode(403, "You are not authorized to enter scores for this subject and grade combination");
-                }
-
-                var examScore = new ExamScore
-                {
-                    StudentId = scoreDto.StudentId,
-                    SubjectId = scoreDto.SubjectId,
-                    ExamTypeId = scoreDto.ExamTypeId,
-                    GradeId = student.GradeId,
-                    Score = scoreDto.Score,
-                    AcademicYear = scoreDto.AcademicYear,
-                    Term = scoreDto.Term,
-                    RecordedBy = teacherId
-                };
-
-                _logger.LogInformation("Creating/updating exam score: {@ExamScore}", examScore);
-
-                var createdScore = await _examService.CreateOrUpdateScoreAsync(examScore);
-
-                _logger.LogInformation("Score created/updated successfully with ID: {ScoreId}", createdScore.Id);
-
-                // Reload the entity with navigation properties for proper response
-                var scoreWithNavigation = await _context.ExamScores
-                    .Include(s => s.Student)
-                    .Include(s => s.Subject)
-                    .Include(s => s.ExamType)
-                    .Include(s => s.RecordedByTeacher)
-                    .FirstOrDefaultAsync(s => s.Id == createdScore.Id);
-
-                if (scoreWithNavigation == null)
-                {
-                    _logger.LogError("Score was created but could not be retrieved with ID: {ScoreId}", createdScore.Id);
-                    return StatusCode(500, "Score was created but could not be retrieved");
-                }
-
-                var responseDto = new ExamScoreDto
-                {
-                    Id = scoreWithNavigation.Id,
-                    StudentId = scoreWithNavigation.StudentId,
-                    StudentName = scoreWithNavigation.Student?.FullName,
-                    SubjectId = scoreWithNavigation.SubjectId,
-                    SubjectName = scoreWithNavigation.Subject?.Name,
-                    ExamTypeId = scoreWithNavigation.ExamTypeId,
-                    ExamTypeName = scoreWithNavigation.ExamType?.Name,
-                    Score = scoreWithNavigation.Score,
-                    AcademicYear = scoreWithNavigation.AcademicYear,
-                    Term = scoreWithNavigation.Term,
-                    RecordedAt = scoreWithNavigation.RecordedAt,
-                    RecordedByName = scoreWithNavigation.RecordedByTeacher?.FullName
-                };
-
-                _logger.LogInformation("Returning score response: {@ResponseDto}", responseDto);
-
-                return Ok(responseDto);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogError(ex, "Unauthorized access in CreateOrUpdateScore");
-                return Unauthorized("Access denied");
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogError(ex, "Invalid argument in CreateOrUpdateScore");
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error in CreateOrUpdateScore");
-                return StatusCode(500, "An unexpected error occurred while processing the request");
-            }
+        if (!hasTeacherRole)
+        {
+            _logger.LogWarning("User does not have Teacher role. Claims: {Claims}", 
+                string.Join(", ", User?.Claims?.Select(c => $"{c.Type}:{c.Value}") ?? new string[0]));
+            return StatusCode(403, "Teacher role required");
         }
 
+        // Validate input
+        if (scoreDto == null)
+        {
+            _logger.LogWarning("CreateOrUpdateScore called with null scoreDto");
+            return BadRequest("Score data is required");
+        }
+
+        // Get teacher ID from claims with better error handling
+        var teacherIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(teacherIdClaim) || !int.TryParse(teacherIdClaim, out int teacherId))
+        {
+            _logger.LogError("Could not parse teacher ID from claims. Claim value: {ClaimValue}", teacherIdClaim);
+            return Unauthorized("Invalid teacher credentials");
+        }
+
+        _logger.LogInformation("Processing score entry for TeacherId: {TeacherId}, StudentId: {StudentId}, SubjectId: {SubjectId}", 
+            teacherId, scoreDto.StudentId, scoreDto.SubjectId);
+
+        // Get student's grade to check authorization
+        var student = await _context.Students.FindAsync(scoreDto.StudentId);
+        if (student == null)
+        {
+            _logger.LogWarning("Student not found with ID: {StudentId}", scoreDto.StudentId);
+            return NotFound("Student not found");
+        }
+
+        _logger.LogInformation("Found student: {StudentName}, GradeId: {GradeId}", student.FullName, student.GradeId);
+
+        // Check if teacher can enter score for this subject/grade
+        var canEnter = await _examService.CanTeacherEnterScore(teacherId, scoreDto.SubjectId, student.GradeId);
+        if (!canEnter)
+        {
+            _logger.LogWarning("Teacher {TeacherId} not authorized to enter scores for SubjectId: {SubjectId}, GradeId: {GradeId}", 
+                teacherId, scoreDto.SubjectId, student.GradeId);
+            return StatusCode(403, "You are not authorized to enter scores for this subject and grade combination");
+        }
+
+        var examScore = new ExamScore
+        {
+            StudentId = scoreDto.StudentId,
+            SubjectId = scoreDto.SubjectId,
+            ExamTypeId = scoreDto.ExamTypeId,
+            GradeId = student.GradeId,
+            Score = scoreDto.Score,
+            AcademicYear = scoreDto.AcademicYear,
+            Term = scoreDto.Term,
+            RecordedBy = teacherId,
+            // Handle comments
+            Comments = scoreDto.Comments,
+            CommentsUpdatedAt = !string.IsNullOrWhiteSpace(scoreDto.Comments) ? DateTime.UtcNow : null,
+            CommentsUpdatedBy = !string.IsNullOrWhiteSpace(scoreDto.Comments) ? teacherId : null
+        };
+
+        _logger.LogInformation("Creating/updating exam score: {@ExamScore}", examScore);
+
+        var createdScore = await _examService.CreateOrUpdateScoreAsync(examScore);
+
+        _logger.LogInformation("Score created/updated successfully with ID: {ScoreId}", createdScore.Id);
+
+        // Reload the entity with navigation properties for proper response
+        var scoreWithNavigation = await _context.ExamScores
+            .Include(s => s.Student)
+            .Include(s => s.Subject)
+            .Include(s => s.ExamType)
+            .Include(s => s.RecordedByTeacher)
+            .Include(s => s.CommentsUpdatedByTeacher) // Include comment author
+            .FirstOrDefaultAsync(s => s.Id == createdScore.Id);
+
+        if (scoreWithNavigation == null)
+        {
+            _logger.LogError("Score was created but could not be retrieved with ID: {ScoreId}", createdScore.Id);
+            return StatusCode(500, "Score was created but could not be retrieved");
+        }
+
+        var responseDto = new ExamScoreDto
+        {
+            Id = scoreWithNavigation.Id,
+            StudentId = scoreWithNavigation.StudentId,
+            StudentName = scoreWithNavigation.Student?.FullName,
+            SubjectId = scoreWithNavigation.SubjectId,
+            SubjectName = scoreWithNavigation.Subject?.Name,
+            ExamTypeId = scoreWithNavigation.ExamTypeId,
+            ExamTypeName = scoreWithNavigation.ExamType?.Name,
+            Score = scoreWithNavigation.Score,
+            AcademicYear = scoreWithNavigation.AcademicYear,
+            Term = scoreWithNavigation.Term,
+            RecordedAt = scoreWithNavigation.RecordedAt,
+            RecordedByName = scoreWithNavigation.RecordedByTeacher?.FullName,
+            // Include comment fields
+            Comments = scoreWithNavigation.Comments,
+            CommentsUpdatedAt = scoreWithNavigation.CommentsUpdatedAt,
+            CommentsUpdatedByName = scoreWithNavigation.CommentsUpdatedByTeacher?.FullName
+        };
+
+        _logger.LogInformation("Returning score response: {@ResponseDto}", responseDto);
+
+        return Ok(responseDto);
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        _logger.LogError(ex, "Unauthorized access in CreateOrUpdateScore");
+        return Unauthorized("Access denied");
+    }
+    catch (ArgumentException ex)
+    {
+        _logger.LogError(ex, "Invalid argument in CreateOrUpdateScore");
+        return BadRequest(ex.Message);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Unexpected error in CreateOrUpdateScore");
+        return StatusCode(500, "An unexpected error occurred while processing the request");
+    }
+}
         /// <summary>
         /// Get all exam types
         /// </summary>
@@ -780,6 +865,118 @@ namespace BluebirdCore.Controllers
             }
         }
 
+        // New admin endpoint to monitor all teacher assignments
+[HttpGet("admin/teacher-assignments")]
+[Authorize(Roles = "Admin,SuperAdmin")]
+public async Task<ActionResult<IEnumerable<TeacherAssignmentDto>>> GetAllTeacherAssignments(
+    [FromQuery] int? teacherId = null,
+    [FromQuery] int? subjectId = null,
+    [FromQuery] int? gradeId = null,
+    [FromQuery] bool includeInactive = false)
+{
+    try
+    {
+        var query = _context.TeacherSubjectAssignments
+            .Include(tsa => tsa.Subject)
+            .Include(tsa => tsa.Grade)
+            .Include(tsa => tsa.Teacher)
+            .AsQueryable();
+
+        // Apply filters
+        if (teacherId.HasValue)
+            query = query.Where(tsa => tsa.TeacherId == teacherId.Value);
+
+        if (subjectId.HasValue)
+            query = query.Where(tsa => tsa.SubjectId == subjectId.Value);
+
+        if (gradeId.HasValue)
+            query = query.Where(tsa => tsa.GradeId == gradeId.Value);
+
+        if (!includeInactive)
+            query = query.Where(tsa => tsa.IsActive);
+
+        var assignments = await query
+            .OrderBy(tsa => tsa.Teacher.FullName)
+            .ThenBy(tsa => tsa.Subject.Name)
+            .ToListAsync();
+
+        var assignmentDtos = assignments.Select(a => new TeacherAssignmentDto
+        {
+            Id = a.Id,
+            TeacherId = a.TeacherId,
+            TeacherName = $"{a.Teacher.FullName}",
+            SubjectId = a.SubjectId,
+            SubjectName = a.Subject?.Name,
+            GradeId = a.GradeId,
+            GradeName = a.Grade?.FullName,
+            AssignedAt = a.AssignedAt,
+            IsActive = a.IsActive
+        });
+
+        return Ok(assignmentDtos);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving all teacher assignments for admin");
+        return StatusCode(500, "An error occurred while retrieving teacher assignments");
+    }
+}
+
+// Additional admin endpoint to get assignment statistics
+[HttpGet("admin/teacher-assignments/stats")]
+[Authorize(Roles = "Admin,SuperAdmin")]
+public async Task<ActionResult<object>> GetTeacherAssignmentStats()
+{
+    try
+    {
+        // Get raw data first, then group in memory
+        var assignments = await _context.TeacherSubjectAssignments
+            .Include(tsa => tsa.Subject)
+            .Include(tsa => tsa.Grade)
+            .Where(tsa => tsa.IsActive)
+            .Select(tsa => new
+            {
+                SubjectName = tsa.Subject.Name,
+                GradeName = tsa.Grade.Name, // Use Name instead of FullName if FullName isn't mapped
+                TeacherId = tsa.TeacherId
+            })
+            .ToListAsync();
+
+        // Group and aggregate in memory
+        var stats = assignments
+            .GroupBy(a => new { a.SubjectName, a.GradeName })
+            .Select(g => new
+            {
+                Subject = g.Key.SubjectName,
+                Grade = g.Key.GradeName,
+                TeacherCount = g.Count()
+            })
+            .OrderBy(s => s.Grade)
+            .ThenBy(s => s.Subject)
+            .ToList();
+
+        var totalActiveAssignments = await _context.TeacherSubjectAssignments
+            .CountAsync(tsa => tsa.IsActive);
+
+        var totalTeachersWithAssignments = await _context.TeacherSubjectAssignments
+            .Where(tsa => tsa.IsActive)
+            .Select(tsa => tsa.TeacherId)
+            .Distinct()
+            .CountAsync();
+
+        return Ok(new
+        {
+            TotalActiveAssignments = totalActiveAssignments,
+            TotalTeachersWithAssignments = totalTeachersWithAssignments,
+            AssignmentsBySubjectAndGrade = stats
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving teacher assignment statistics");
+        return StatusCode(500, "An error occurred while retrieving assignment statistics");
+    }
+}
         /// <summary>
         /// Debug endpoint to check authentication status - NO ROLE RESTRICTION for debugging
         /// </summary>

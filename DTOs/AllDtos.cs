@@ -149,6 +149,10 @@ namespace BluebirdCore.DTOs
         public int Term { get; set; }
         public DateTime RecordedAt { get; set; }
         public string RecordedByName { get; set; }
+        // Comment fields
+        public string? Comments { get; set; }
+        public DateTime? CommentsUpdatedAt { get; set; }
+        public string? CommentsUpdatedByName { get; set; }
     }
 
     public class CreateExamScoreDto
@@ -172,6 +176,10 @@ namespace BluebirdCore.DTOs
         [Required]
         [Range(1, 3)]
         public int Term { get; set; }
+
+        [Required]
+        [StringLength(1000)]
+        public string? Comments { get; set; }
     }
 
     // For updating existing scores
@@ -180,6 +188,11 @@ namespace BluebirdCore.DTOs
         [Required]
         [Range(0, 100, ErrorMessage = "Score must be between 0 and 100")]
         public decimal Score { get; set; }
+
+         
+        [StringLength(1000, ErrorMessage = "Comments cannot exceed 1000 characters")]
+        public string? Comments { get; set; }
+}
     }
 
     // For updating exam types
@@ -289,14 +302,17 @@ namespace BluebirdCore.DTOs
         public int Order { get; set; }
     }
 
-    public class TeacherAssignmentDto
-    {
-        public int Id { get; set; }
-        public int SubjectId { get; set; }
-        public string SubjectName { get; set; }
-        public int GradeId { get; set; }
-        public string GradeName { get; set; }
-        public DateTime AssignedAt { get; set; }
+public class TeacherAssignmentDto
+{
+    public int Id { get; set; }
+    public int TeacherId { get; set; }
+    public string TeacherName { get; set; }
+    public int SubjectId { get; set; }
+    public string SubjectName { get; set; }
+    public int GradeId { get; set; }
+    public string GradeName { get; set; }
+    public DateTime AssignedAt { get; set; }
+    public bool IsActive { get; set; }
     }
 
     public class CreateAcademicYearDto
@@ -328,8 +344,8 @@ namespace BluebirdCore.DTOs
         public int GradeId { get; set; }
         public string GradeName { get; set; }
         public bool IsActive { get; set; }
-        public bool IsArchived { get; set; }
-        public List<SubjectDto> OptionalSubjects { get; set; }
+        //public bool IsArchived { get; set; }
+        //public List<SubjectDto> OptionalSubjects { get; set; }
         // Add other fields as needed
     }
 
@@ -364,5 +380,4 @@ public class UpdateAcademicYearDto
     public string Name { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
-}
 }

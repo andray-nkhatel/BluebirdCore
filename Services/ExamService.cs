@@ -55,19 +55,38 @@ namespace BluebirdCore.Services
                                          && es.ExamTypeId == score.ExamTypeId 
                                          && es.AcademicYear == score.AcademicYear 
                                          && es.Term == score.Term);
-
+        
             if (existingScore != null)
             {
+                // Update existing score
                 existingScore.Score = score.Score;
                 existingScore.RecordedAt = DateTime.UtcNow;
                 existingScore.RecordedBy = score.RecordedBy;
+                
+                // Handle comments - only update timestamp if comments actually changed
+                if (existingScore.Comments != score.Comments)
+                {
+                    existingScore.Comments = score.Comments;
+                    existingScore.CommentsUpdatedAt = DateTime.UtcNow;
+                    existingScore.CommentsUpdatedBy = score.RecordedBy;
+                }
+                // If comments are the same, preserve existing comment metadata
             }
             else
             {
+                // Create new score
                 score.RecordedAt = DateTime.UtcNow;
+                
+                // Set comment metadata for new scores if comments exist
+                if (!string.IsNullOrWhiteSpace(score.Comments))
+                {
+                    score.CommentsUpdatedAt = DateTime.UtcNow;
+                    score.CommentsUpdatedBy = score.RecordedBy;
+                }
+                
                 _context.ExamScores.Add(score);
             }
-
+        
             await _context.SaveChangesAsync();
             return existingScore ?? score;
         }
