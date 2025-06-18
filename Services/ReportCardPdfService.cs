@@ -7,6 +7,7 @@ using QuestPDF.Infrastructure;
 using BluebirdCore.Entities;
 using Microsoft.EntityFrameworkCore;
 using BluebirdCore.Data;
+using QuestPDF.Previewer;
 
 namespace BluebirdCore.Services
 {
@@ -365,7 +366,7 @@ namespace BluebirdCore.Services
                     // container.Page(page =>
                     // {
                     //     ConfigureBasicPage(page);
-                        
+
                     //      page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
                     //     {
                     //         column.Item().Text("CHUDLEIGH HOUSE SCHOOL").FontSize(18).Bold().AlignCenter();
@@ -373,7 +374,7 @@ namespace BluebirdCore.Services
                     //         column.Item().PaddingTop(20).LineHorizontal(1);
 
                     //         column.Item().PaddingTop(15).Text("ACADEMIC PERFORMANCE - Continued").FontSize(14).Bold();
-                            
+
                     //         AddPrimaryScoreTable(column, examData.Skip(halfCount).ToList(), false);
 
                     //         // Overall Summary
@@ -390,39 +391,39 @@ namespace BluebirdCore.Services
                     container.Page(page =>
                     {
                         ConfigureBasicPage(page);
-                        
-                         page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
-                        {
-                            // column.Item().Text("CHUDLEIGH HOUSE SCHOOL").FontSize(18).Bold().AlignCenter();
-                            // column.Item().Text("PRIMARY SCHOOL REPORT CARD - PAGE 3").FontSize(14).AlignCenter();
-                            column.Item().PaddingTop(5).LineHorizontal(1);
 
-                            var overallAverage = CalculateOverallAverage(examData);
+                        page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
+                       {
+                           // column.Item().Text("CHUDLEIGH HOUSE SCHOOL").FontSize(18).Bold().AlignCenter();
+                           // column.Item().Text("PRIMARY SCHOOL REPORT CARD - PAGE 3").FontSize(14).AlignCenter();
+                           column.Item().PaddingTop(5).LineHorizontal(1);
 
-                            // Teacher's Comprehensive Assessment
-                            // column.Item().PaddingTop(20).Text("CLASS TEACHER'S COMPREHENSIVE ASSESSMENT").FontSize(14).Bold();
-                            // column.Item().PaddingTop(10)
-                            //     //.Height(80)
-                            //     //.Padding(20)
-                            //     // .Padding(15)
-                            //     // .BorderHorizontal(1)
-                            //     // .BorderVertical(1)
-                            //     .Background(Colors.Grey.Lighten3)
-                            //     .Text(GenerateDetailedTeacherComment(overallAverage, student.FirstName, examData));
+                           var overallAverage = CalculateOverallAverage(examData);
 
-                            // // Subject Recommendations
-                            // column.Item().PaddingTop(5).Text("SUBJECT-SPECIFIC RECOMMENDATIONS").FontSize(12).Bold();
-                            // column.Item().PaddingTop(5)
-                            //     // .BorderHorizontal(1)
-                            //     // .BorderVertical(1)
-                            //     //.Padding(20)
-                            //     //.Height(80)
-                            //     .Background(Colors.Grey.Lighten3)
-                            //     .Text(GenerateSubjectRecommendations(examData, student.FirstName));
+                           // Teacher's Comprehensive Assessment
+                           // column.Item().PaddingTop(20).Text("CLASS TEACHER'S COMPREHENSIVE ASSESSMENT").FontSize(14).Bold();
+                           // column.Item().PaddingTop(10)
+                           //     //.Height(80)
+                           //     //.Padding(20)
+                           //     // .Padding(15)
+                           //     // .BorderHorizontal(1)
+                           //     // .BorderVertical(1)
+                           //     .Background(Colors.Grey.Lighten3)
+                           //     .Text(GenerateDetailedTeacherComment(overallAverage, student.FirstName, examData));
 
-                            AddAdministrativeSection(column, student.Grade);
-                            AddPrimaryGradingScale(column);
-                        });
+                           // // Subject Recommendations
+                           // column.Item().PaddingTop(5).Text("SUBJECT-SPECIFIC RECOMMENDATIONS").FontSize(12).Bold();
+                           // column.Item().PaddingTop(5)
+                           //     // .BorderHorizontal(1)
+                           //     // .BorderVertical(1)
+                           //     //.Padding(20)
+                           //     //.Height(80)
+                           //     .Background(Colors.Grey.Lighten3)
+                           //     .Text(GenerateSubjectRecommendations(examData, student.FirstName));
+
+                           AddAdministrativeSection(column, student.Grade);
+                           AddPrimaryGradingScale(column);
+                       });
 
                         // AddPageFooter(page, 3);
                     });
@@ -431,6 +432,9 @@ namespace BluebirdCore.Services
                     AddCoverPage(container, student, academicYear, term, "PRIMARY SCHOOL");
 
                 }).GeneratePdf(filePath);
+                
+                
+
             });
         }
 
@@ -557,7 +561,7 @@ namespace BluebirdCore.Services
         private static void AddStudentInformation(ColumnDescriptor column, Student student, 
             AcademicYear academicYear, int term)
         {
-            column.Item().PaddingTop(15).Text("STUDENT INFORMATION").FontSize(14).Bold();
+            column.Item().PaddingTop(5).Text("STUDENT INFORMATION").FontSize(14).Bold();
             
             column.Item().PaddingTop(10).Row(row =>
             {
@@ -787,16 +791,16 @@ namespace BluebirdCore.Services
 
         private static void AddAdministrativeSection(ColumnDescriptor column, Grade grade)
         {
-            column.Item().PaddingTop(25).Text("ADMINISTRATIVE APPROVAL").FontSize(14).Bold();
+            column.Item().PaddingTop(25).Text("ADMINISTRATIVE APPROVAL").AlignCenter().FontSize(14).Bold();
             
-            column.Item().Row(row =>
+            column.Item().PaddingHorizontal(100).PaddingVertical(60).Row(row =>
             {
                 
                 
-                row.RelativeItem().Background(Colors.Grey.Lighten3).Width(100).Padding(10).Column(col =>
+                row.RelativeItem().Background(Colors.Grey.Lighten3).Padding(10).Height(60).Column(col =>
                 {
                     col.Item().Text("Signature:").AlignCenter().Bold();
-                    col.Item().PaddingTop(15).LineHorizontal(1);
+                    col.Item().PaddingTop(45).LineHorizontal(1);
                     // col.Item().PaddingTop(5).Text("Name: ___________________").AlignCenter();
                     // col.Item().PaddingTop(5).Text("Date: ___________________").AlignCenter();
                 });
@@ -848,13 +852,13 @@ namespace BluebirdCore.Services
 
         private static void AddPrimaryGradingScale(ColumnDescriptor column)
         {
-            column.Item().PaddingTop(25).Text("PRIMARY SCHOOL GRADING SCALE").FontSize(12).Bold();
+            column.Item().PaddingTop(25).Text("PRIMARY SCHOOL GRADING SCALE").FontSize(12).AlignCenter().Bold();
 
-            column.Item().Table(table =>
+            column.Item().PaddingTop(10).PaddingHorizontal(80).Table(table =>
             {
                 table.ColumnsDefinition(columns =>
                    {
-                       columns.ConstantColumn(150);
+                       columns.ConstantColumn(40);
                        columns.RelativeColumn(2);
                        columns.RelativeColumn(3);
                    });
