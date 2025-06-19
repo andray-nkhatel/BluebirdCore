@@ -927,56 +927,95 @@ namespace BluebirdCore.Services
 
         private static void AddCoverPage(IDocumentContainer container, Student student, AcademicYear academicYear, int term, string section)
         {
+            
+
+
             container.Page(page =>
             {
                 page.Size(PageSizes.A4);
-
-                // page.Margin(2, Unit.Centimetre);
+                page.Margin(1.5f, Unit.Centimetre);
                 page.PageColor(Colors.White);
                 page.DefaultTextStyle(x => x.FontSize(12));
+
+                //page.Size(PageSizes.A4);
+
+                //page.Margin(2, Unit.Centimetre);
+                //page.PageColor(Colors.White);
+                //page.DefaultTextStyle(x => x.FontSize(12));
                 page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
-                // page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Column(column =>
+                //page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Column(column =>
                 {
                     // School Logo Area (placeholder)
-                    column.Item().AlignCenter().Height(80).Background(Colors.Grey.Lighten3)
-                        .AlignCenter().AlignMiddle().Text("SCHOOL LOGO").FontSize(16).Bold();
+                    //column.Item().AlignCenter().Height(80).Background(Colors.Grey.Lighten3)
+                        //.AlignCenter().AlignMiddle().Text("SCHOOL LOGOS").FontSize(16).Bold();
+
+                   
 
                     // School Name
                     column.Item().PaddingTop(30).AlignCenter()
                         .Text("CHUDLEIGH HOUSE SCHOOL").FontSize(32).Bold().FontColor(Colors.Blue.Darken2);
+                    // Logo
+                    column.Item().AlignCenter().Height(120).Image("./Media/chs-logo.png");
 
                     // School Motto
                     column.Item().PaddingTop(15).AlignCenter()
-                        .Text("\"Towards A Brighter Future\"").FontSize(16).Italic().FontColor(Colors.Blue.Medium);
+                        .Text("\"Towards A Brighter Future\"").FontSize(20).Italic().FontColor(Colors.Blue.Medium);
 
                     // Report Title
-                    column.Item().PaddingTop(40).AlignCenter()
+                    column.Item().PaddingTop(80).AlignCenter()
                         .Text($"{section} REPORT CARD").FontSize(24).Bold().FontColor(Colors.Green.Darken1);
 
+                    // Exam Title
+                    column.Item().PaddingTop(20).AlignCenter()
+                        .Text($"End of Term {term} Examination {academicYear.Name}").FontSize(18).Bold().FontColor(Colors.Blue.Darken1);
+
                     // Academic Information Box
-                    column.Item().PaddingTop(50).AlignCenter().Width(400).Column(col =>
+                    // column.Item().PaddingTop(50).AlignCenter().Width(400).Column(col =>
+                    // {
+                    //     col.Item().Background(Colors.Grey.Lighten4).Padding(20).Column(info =>
+                    //     {
+                    //         //info.Item().AlignCenter().Text("ACADEMIC INFORMATION").FontSize(16).Bold().AlignCenter();
+                    //         info.Item().PaddingTop(15).Text($"Student Name: {student.FullName}").FontSize(14);
+                    //         // info.Item().PaddingTop(8).Text($"Student Number: {student.StudentNumber}").FontSize(12);
+                    //         info.Item().PaddingTop(15).Text($"Class: {student.Grade?.FullName}").FontSize(14);
+                    //         info.Item().PaddingTop(15).Text($"Class Teacher: {student.Grade?.HomeroomTeacher?.FullName ?? "Not Assigned"}").FontSize(14);
+                    //         // info.Item().PaddingTop(8).Text($"Examination: End of Term {term}").FontSize(12);
+                    //         // info.Item().PaddingTop(8).Text($"Academic Year: {academicYear?.Name}").FontSize(12);
+                    //     });
+                    // });
+
+                    column.Item().PaddingTop(100).Border(0).BorderColor(Colors.Transparent).PaddingHorizontal(60).Table(table =>
                     {
-                        col.Item().Background(Colors.Grey.Lighten4).Padding(20).Column(info =>
-                        {
-                            info.Item().AlignCenter().Text("ACADEMIC INFORMATION").FontSize(16).Bold().AlignCenter();
-                            info.Item().PaddingTop(15).Text($"Student Name: {student.FullName}").FontSize(14).Bold();
-                            // info.Item().PaddingTop(8).Text($"Student Number: {student.StudentNumber}").FontSize(12);
-                            info.Item().PaddingTop(8).Text($"Grade/Class: {student.Grade?.FullName}").FontSize(12);
-                            info.Item().PaddingTop(8).Text($"Class Teacher: {student.Grade?.HomeroomTeacher?.FullName ?? "Not Assigned"}").FontSize(12);
-                            info.Item().PaddingTop(8).Text($"Examination: End of Term {term}").FontSize(12);
-                            info.Item().PaddingTop(8).Text($"Academic Year: {academicYear?.Name}").FontSize(12);
-                        });
+                        table.ColumnsDefinition(columns =>
+                       {
+                           columns.ConstantColumn(80);
+                           columns.RelativeColumn(125);
+                           //columns.ConstantColumn(125);
+                       });
+
+
+                        table.Cell().Element(CellStyle).Text($"Name:").FontSize(14);
+                        table.Cell().Element(CellStyle).Text($"{student.FullName}").FontSize(14);
+                        // table.Cell().Element(CellStyle).Text("180px");
+
+                        table.Cell().Element(CellStyle).Text($"Class:").FontSize(14);
+                        table.Cell().Element(CellStyle).Text($"{student.Grade?.FullName}").FontSize(14);
+                        
+                        table.Cell().Element(CellStyle).Text($"Teacher:").FontSize(14);
+                        table.Cell().Element(CellStyle).Text($"{student.Grade?.HomeroomTeacher?.FullName ?? "Not Assigned"}").FontSize(14);
+                        
+
                     });
 
                     // School Address and Contact
-                    // column.Item().Background(Colors.Grey.Lighten4).PaddingTop(150).Column(contact =>
-                    // {
-                    //     contact.Item().Text("Chudleigh House School").FontSize(14).Bold().AlignCenter();
-                    //     contact.Item().Text("P.O. Box 12345, Lusaka, Zambia").FontSize(8).AlignCenter();
-                    //     contact.Item().Text("Tel: +260-XXX-XXXX").FontSize(12).AlignCenter().FontSize(8);
-                    //     contact.Item().Text("Email: info@chudleighhouseschool.com").AlignCenter().FontSize(8);
-                    //     contact.Item().Text("Website: www.chudleighhouseschool.com").FontSize(8).AlignCenter();
-                    // });
+                     column.Item().PaddingTop(80).Column(contact =>
+                     {
+                         //contact.Item().Text("Chudleigh House School").FontSize(14).Bold().AlignCenter();
+                         contact.Item().Text("P.O. Box 12345, Lusaka, Zambia").FontSize(8).AlignCenter();
+                         contact.Item().Text("Tel: +260-XXX-XXXX").FontSize(12).AlignCenter().FontSize(8);
+                         contact.Item().Text("Email: info@chudleighhouseschool.com").AlignCenter().FontSize(8);
+                         contact.Item().Text("Website: www.chudleighhouseschool.com").FontSize(8).AlignCenter();
+                     });
 
                     // Generation Date
                     //column.Item().PaddingTop(40).AlignCenter().Text($"Generated on {DateTime.Now:dddd, dd MMMM yyyy}").FontSize(10).Italic();
