@@ -10,8 +10,10 @@ namespace BluebirdCore.Entities
         public int AcademicYear { get; set; }
         public int Term { get; set; }
         
-        [StringLength(500)]
-        public string FilePath { get; set; }
+        /// <summary>
+        /// The PDF content of the report card, stored as a byte array in the database.
+        /// </summary>
+        public byte[] PdfContent { get; set; }
         
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
         public int GeneratedBy { get; set; }

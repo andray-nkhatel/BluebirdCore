@@ -13,26 +13,25 @@ namespace BluebirdCore.Services
 {
     public class ReportCardPdfService
     {
-        private readonly string _reportPath;
+        // private readonly string _reportPath;
         private readonly SchoolDbContext _context;
         private readonly ILogger<ReportCardPdfService> _logger;
 
         public ReportCardPdfService(IConfiguration configuration, SchoolDbContext context, ILogger<ReportCardPdfService> logger)
         {
-            _reportPath = configuration["ReportCards:StoragePath"] ?? "Reports";
+            // _reportPath = configuration["ReportCards:StoragePath"] ?? "Reports";
             _context = context;
             _logger = logger;
-            Directory.CreateDirectory(_reportPath);
+            // Directory.CreateDirectory(_reportPath);
 
             // Configure QuestPDF license
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
-        public async Task<string> GenerateReportCardPdfAsync(int studentId, int academicYearId, int term)
+        public async Task<byte[]> GenerateReportCardPdfAsync(int studentId, int academicYearId, int term)
         {
             try
             {
-                // Get student with related data
                 var student = await _context.Students
                     .Include(s => s.Grade)
                         .ThenInclude(g => g.HomeroomTeacher)
@@ -41,35 +40,25 @@ namespace BluebirdCore.Services
                 if (student == null)
                     throw new ArgumentException($"Student with ID {studentId} not found");
 
-                // Get academic year info
                 var academicYear = await _context.AcademicYears
                     .FirstOrDefaultAsync(ay => ay.Id == academicYearId);
 
                 if (academicYear == null)
                     throw new ArgumentException($"Academic year with ID {academicYearId} not found");
 
-                // Get all exam scores for the student for this academic year and term
                 var examScores = await GetStudentExamScores(studentId, academicYearId, term);
 
-                var fileName = $"ReportCard_{student.StudentNumber}_{academicYear.Name}_Term{term}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
-                var filePath = Path.Combine(_reportPath, fileName);
-
-                // Generate PDF based on school section
                 switch (student.Grade.Section)
                 {
                     case SchoolSection.Preschool:
-                        await GeneratePreschoolReportCardAsync(student, examScores, academicYear, term, filePath);
-                        break;
+                        return await GeneratePreschoolReportCardAsync(student, examScores, academicYear, term);
                     case SchoolSection.Primary:
-                        await GeneratePrimaryReportCardAsync(student, examScores, academicYear, term, filePath);
-                        break;
+                        return await GeneratePrimaryReportCardAsync(student, examScores, academicYear, term);
                     case SchoolSection.Secondary:
-                        await GenerateSecondaryReportCardAsync(student, examScores, academicYear, term, filePath);
-                        break;
+                        return await GenerateSecondaryReportCardAsync(student, examScores, academicYear, term);
+                    default:
+                        throw new InvalidOperationException("Unknown school section");
                 }
-
-                _logger.LogInformation($"Report card generated successfully: {fileName}");
-                return filePath;
             }
             catch (Exception ex)
             {
@@ -78,13 +67,11 @@ namespace BluebirdCore.Services
             }
         }
 
-        // Legacy method for backward compatibility
-        public async Task<string> GenerateReportCardPdfAsync(Student student, IEnumerable<ExamScore> scores, int academicYear, int term)
+        public async Task<byte[]> GenerateReportCardPdfAsync(Student student, IEnumerable<ExamScore> scores, int academicYear, int term)
         {
-            // Convert to new method signature
             var academicYearEntity = await _context.AcademicYears
                 .FirstOrDefaultAsync(ay => ay.Name.Contains(academicYear.ToString()));
-            
+
             if (academicYearEntity == null)
                 throw new ArgumentException($"Academic year {academicYear} not found");
 
@@ -93,7 +80,6 @@ namespace BluebirdCore.Services
 
         private async Task<List<StudentExamData>> GetStudentExamScores(int studentId, int academicYearId, int term)
         {
-            // Get all exam scores for the student with navigation properties
             var scores = await _context.ExamScores
                 .Include(es => es.Subject)
                 .Include(es => es.ExamType)
@@ -104,7 +90,6 @@ namespace BluebirdCore.Services
                            es.Term == term)
                 .ToListAsync();
 
-            // Group by subject to organize the data
             var subjectGroups = scores.GroupBy(s => s.Subject);
             var examData = new List<StudentExamData>();
 
@@ -113,12 +98,10 @@ namespace BluebirdCore.Services
                 var subject = subjectGroup.Key;
                 var subjectScores = subjectGroup.ToList();
 
-                // Find specific exam types
                 var test1Score = subjectScores.FirstOrDefault(s => s.ExamType.Name == "Test-One");
                 var midTermScore = subjectScores.FirstOrDefault(s => s.ExamType.Name == "Mid-Term");
                 var endTermScore = subjectScores.FirstOrDefault(s => s.ExamType.Name == "End-of-Term");
 
-                // Only use comments from End-of-Term exam as requested
                 var comments = endTermScore?.Comments;
 
                 examData.Add(new StudentExamData
@@ -128,7 +111,7 @@ namespace BluebirdCore.Services
                     Test1Score = test1Score?.Score ?? 0,
                     MidTermScore = midTermScore?.Score ?? 0,
                     EndTermScore = endTermScore?.Score ?? 0,
-                    Comments = comments, // Only from End-of-Term
+                    Comments = comments,
                     CommentsUpdatedAt = endTermScore?.CommentsUpdatedAt,
                     CommentsUpdatedBy = endTermScore?.CommentsUpdatedByTeacher?.FullName,
                     LastUpdated = endTermScore?.RecordedAt ?? DateTime.Now,
@@ -138,22 +121,29 @@ namespace BluebirdCore.Services
 
             return examData.OrderBy(e => e.SubjectName).ToList();
         }
+
+
+
+        
+
+        
         
         
 
-        private async Task GeneratePreschoolReportCardAsync(Student student, List<StudentExamData> examData,
-            AcademicYear academicYear, int term, string filePath)
+        private async Task<byte[]> GeneratePreschoolReportCardAsync(Student student, List<StudentExamData> examData,
+            AcademicYear academicYear, int term)
         {
-            await Task.Run(() =>
+            return await Task.Run(() =>
             {
-            
-                Document.Create(container =>
+                using var ms = new MemoryStream();
+
+                var document = Document.Create(container =>
                 {
                     container.Page(page =>
                         {
                             ConfigureBasicPage(page);
 
-                            
+
 
 
                             // Remove page.Header() and put everything in Content
@@ -209,46 +199,49 @@ namespace BluebirdCore.Services
                             });
                         });
 
-                        // PAGE 2: Administrative Section & Grading Scale (without header)
-                        container.Page(page =>
+                    // PAGE 2: Administrative Section & Grading Scale (without header)
+                    container.Page(page =>
+                    {
+                        ConfigureBasicPage(page);
+
+                        page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
                         {
-                            ConfigureBasicPage(page);
+                            column.Item().PaddingTop(5).LineHorizontal(1);
 
-                            page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
+                            var overallAverage = CalculateOverallAverage(examData);
+
+                            AddPreschoolAdministrativeSection(column, student.Grade);
+                            //AddPrimaryGradingScale(column);
+
+                            column.Item().PaddingTop(170).Column(contact =>
                             {
-                                column.Item().PaddingTop(5).LineHorizontal(1);
-
-                                var overallAverage = CalculateOverallAverage(examData);
-
-                                AddPreschoolAdministrativeSection(column, student.Grade);
-                                //AddPrimaryGradingScale(column);
-
-                                column.Item().PaddingTop(170).Column(contact =>
-                                {
-                                    contact.Item().Text("Chudleigh House School").FontSize(14).Bold().AlignCenter();
-                                    contact.Item().Text("Plot 11289, Lusaka, Zambia").FontSize(8).AlignCenter();
-                                    contact.Item().Text("Tel: +260-955-876333  | +260-953-074465").FontSize(12).AlignCenter().FontSize(8);
-                                    contact.Item().Text("Email: info@chudleighhouseschool.com").AlignCenter().FontSize(8);
-                                    contact.Item().Text("Website: www.chudleighhouseschool.com").FontSize(8).AlignCenter();
-                                });
+                                contact.Item().Text("Chudleigh House School").FontSize(14).Bold().AlignCenter();
+                                contact.Item().Text("Plot 11289, Lusaka, Zambia").FontSize(8).AlignCenter();
+                                contact.Item().Text("Tel: +260-955-876333  | +260-953-074465").FontSize(12).AlignCenter().FontSize(8);
+                                contact.Item().Text("Email: info@chudleighhouseschool.com").AlignCenter().FontSize(8);
+                                contact.Item().Text("Website: www.chudleighhouseschool.com").FontSize(8).AlignCenter();
                             });
                         });
+                    });
 
-                        // PAGE 3: Cover Page (without header)
-                        AddCoverPage(container, student, academicYear, term, "PCELC");
+                    // PAGE 3: Cover Page (without header)
+                    AddCoverPage(container, student, academicYear, term, "PCELC");
 
-                }).GeneratePdf(filePath);
+                });
+                document.GeneratePdf(ms);
+                return ms.ToArray();
             });
         }
 
-        private async Task GeneratePrimaryReportCardAsync(Student student, List<StudentExamData> examData,
-            AcademicYear academicYear, int term, string filePath)
+        private async Task<byte[]> GeneratePrimaryReportCardAsync(Student student, List<StudentExamData> examData,
+            AcademicYear academicYear, int term)
         {
-            await Task.Run(() =>
+            return await Task.Run(() =>
             {
                 var halfCount = (examData.Count + 1) / 2;
                 try
                 {
+                    using var ms = new MemoryStream();
                     Document.Create(container =>
                     {
                         // PAGE 1: Student Information & Scores (Part 1)
@@ -337,27 +330,28 @@ namespace BluebirdCore.Services
                         // PAGE 3: Cover Page (without header)
                         AddCoverPage(container, student, academicYear, term, "PRIMARY SCHOOL");
 
-                    }).GeneratePdf(filePath);
+                    }).GeneratePdf(ms);
                     _logger.LogInformation("PDF generated successfully");
+                    return ms.ToArray();
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     _logger.LogError($"PDF generation failed: {ex.Message}");
                     throw;
                 }
             });
         }
-        private async Task GenerateSecondaryReportCardAsync(Student student, List<StudentExamData> examData,
-            AcademicYear academicYear, int term, string filePath)
+        private async Task<byte[]> GenerateSecondaryReportCardAsync(Student student, List<StudentExamData> examData,
+            AcademicYear academicYear, int term)
         {
-            await Task.Run(() =>
+            return await Task.Run(() =>
             {
                 var halfCount = (examData.Count + 1) / 2;
-
+                using var ms = new MemoryStream();
                 Document.Create(container =>
                 {
                     // PAGE 1: Student Information & Scores (Part 1)
-                  
+
                     container.Page(page =>
                         {
                             ConfigureBasicPage(page);
@@ -417,35 +411,36 @@ namespace BluebirdCore.Services
 
 
                     // PAGE 3: Teacher Comments & Administrative
-                    
-                        container.Page(page =>
+
+                    container.Page(page =>
+                    {
+                        ConfigureBasicPage(page);
+
+                        page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
                         {
-                            ConfigureBasicPage(page);
+                            column.Item().PaddingTop(5).LineHorizontal(1);
 
-                            page.Content().Border(5).BorderColor(Colors.Blue.Darken2).Padding(20).Column(column =>
+                            var overallAverage = CalculateOverallAverage(examData);
+
+                            AddSecondaryAdministrativeSection(column, student.Grade);
+                            AddSecondaryGradingScale(column);
+
+                            column.Item().PaddingTop(170).Column(contact =>
                             {
-                                column.Item().PaddingTop(5).LineHorizontal(1);
-
-                                var overallAverage = CalculateOverallAverage(examData);
-
-                                AddSecondaryAdministrativeSection(column, student.Grade);
-                                AddSecondaryGradingScale(column);
-
-                                column.Item().PaddingTop(170).Column(contact =>
-                                {
-                                    contact.Item().Text("Chudleigh House School").FontSize(14).Bold().AlignCenter();
-                                    contact.Item().Text("Plot 11289, Lusaka, Zambia").FontSize(8).AlignCenter();
-                                    contact.Item().Text("Tel: +260-955-876333  | +260-953-074465").FontSize(12).AlignCenter().FontSize(8);
-                                    contact.Item().Text("Email: info@chudleighhouseschool.com").AlignCenter().FontSize(8);
-                                    contact.Item().Text("Website: www.chudleighhouseschool.com").FontSize(8).AlignCenter();
-                                });
+                                contact.Item().Text("Chudleigh House School").FontSize(14).Bold().AlignCenter();
+                                contact.Item().Text("Plot 11289, Lusaka, Zambia").FontSize(8).AlignCenter();
+                                contact.Item().Text("Tel: +260-955-876333  | +260-953-074465").FontSize(12).AlignCenter().FontSize(8);
+                                contact.Item().Text("Email: info@chudleighhouseschool.com").AlignCenter().FontSize(8);
+                                contact.Item().Text("Website: www.chudleighhouseschool.com").FontSize(8).AlignCenter();
                             });
                         });
+                    });
 
                     // PAGE 4: Cover Page
                     AddCoverPage(container, student, academicYear, term, "SECONDARY SCHOOL");
 
-                }).GeneratePdf(filePath);
+                }).GeneratePdf(ms);
+                return ms.ToArray();
             });
         }
 
@@ -886,6 +881,12 @@ namespace BluebirdCore.Services
             
             container.Page(page =>
             {
+                 page.Background()
+                .AlignCenter()
+                .AlignMiddle()
+                .Width(500)
+                .Image("./Media/chs-wm-logo.png");
+
                 page.Size(PageSizes.A4);
                 page.Margin(1.5f, Unit.Centimetre);
                 page.PageColor(Colors.White);
