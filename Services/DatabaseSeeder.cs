@@ -41,15 +41,16 @@ namespace BluebirdCore.Services
                 _logger.LogInformation($"📊 Current user count: {userCount}");
 
                 // List existing users
-                var existingUsers = await _context.Users.Select(u => new { u.Username, u.Role, u.IsActive }).ToListAsync();
+                var existingUsers = await _context.Users.Select(u => new { u.Username, u.Email, u.Role, u.IsActive }).ToListAsync();
                 foreach (var user in existingUsers)
                 {
-                    _logger.LogInformation($"👤 Existing user: {user.Username} ({user.Role}) - Active: {user.IsActive}");
+                    _logger.LogInformation($"👤 Existing user: {user.Username} ({user.Email}) [{user.Role}] - Active: {user.IsActive}");
                 }
 
-                // Seed sample teacher if not exists
-                var teacherExists = await _context.Users.AnyAsync(u => u.Username == "mwiindec");
-                _logger.LogInformation($"🔍 Teacher 'mwiindec' exists: {teacherExists}");
+                // Check for teacher by username OR email to avoid duplicates
+                var teacherExists = await _context.Users.AnyAsync(u => 
+                    u.Username == "mwiindec" || u.Email == "clement.mwiinde@chs.edu");
+                _logger.LogInformation($"🔍 Teacher 'mwiindec' or email 'clement.mwiinde@chs.edu' exists: {teacherExists}");
 
                 if (!teacherExists)
                 {
@@ -101,17 +102,51 @@ namespace BluebirdCore.Services
                 {
                     _logger.LogInformation("ℹ️ Teacher already exists, skipping creation");
                     
-                    // Verify existing teacher
-                    var existingTeacher = await _context.Users.FirstOrDefaultAsync(u => u.Username == "mwiindec");
+                    // Find existing teacher by username or email
+                    var existingTeacher = await _context.Users.FirstOrDefaultAsync(u => 
+                        u.Username == "mwiindec" || u.Email == "clement.mwiinde@chs.edu");
+                    
                     if (existingTeacher != null)
                     {
                         _logger.LogInformation($"📋 Existing teacher details:");
                         _logger.LogInformation($"   - ID: {existingTeacher.Id}");
                         _logger.LogInformation($"   - Username: {existingTeacher.Username}");
+                        _logger.LogInformation($"   - Email: {existingTeacher.Email}");
                         _logger.LogInformation($"   - FullName: {existingTeacher.FullName}");
                         _logger.LogInformation($"   - Role: {existingTeacher.Role}");
                         _logger.LogInformation($"   - IsActive: {existingTeacher.IsActive}");
                         _logger.LogInformation($"   - CreatedAt: {existingTeacher.CreatedAt}");
+                        
+                        // Update user details if needed (in case found by email but username is different)
+                        bool needsUpdate = false;
+                        
+                        if (existingTeacher.Username != "mwiindec")
+                        {
+                            _logger.LogInformation($"🔄 Updating username from '{existingTeacher.Username}' to 'mwiindec'");
+                            existingTeacher.Username = "mwiindec";
+                            needsUpdate = true;
+                        }
+                        
+                        if (existingTeacher.Email != "clement.mwiinde@chs.edu")
+                        {
+                            _logger.LogInformation($"🔄 Updating email from '{existingTeacher.Email}' to 'clement.mwiinde@chs.edu'");
+                            existingTeacher.Email = "clement.mwiinde@chs.edu";
+                            needsUpdate = true;
+                        }
+                        
+                        if (existingTeacher.FullName != "Clement Mwiinde")
+                        {
+                            _logger.LogInformation($"🔄 Updating full name from '{existingTeacher.FullName}' to 'Clement Mwiinde'");
+                            existingTeacher.FullName = "Clement Mwiinde";
+                            needsUpdate = true;
+                        }
+                        
+                        if (existingTeacher.Role != UserRole.Teacher)
+                        {
+                            _logger.LogInformation($"🔄 Updating role from '{existingTeacher.Role}' to 'Teacher'");
+                            existingTeacher.Role = UserRole.Teacher;
+                            needsUpdate = true;
+                        }
                         
                         // Test password verification on existing user
                         var passwordTest = BCrypt.Net.BCrypt.Verify("mwiindec123", existingTeacher.PasswordHash);
@@ -121,8 +156,21 @@ namespace BluebirdCore.Services
                         {
                             _logger.LogWarning("⚠️ Password verification failed for existing teacher - updating password");
                             existingTeacher.PasswordHash = BCrypt.Net.BCrypt.HashPassword("mwiindec123");
-                            await _context.SaveChangesAsync();
-                            _logger.LogInformation("✅ Teacher password updated");
+                            needsUpdate = true;
+                        }
+                        
+                        if (needsUpdate)
+                        {
+                            try
+                            {
+                                await _context.SaveChangesAsync();
+                                _logger.LogInformation("✅ Teacher details updated successfully");
+                            }
+                            catch (Exception updateEx)
+                            {
+                                _logger.LogError(updateEx, "❌ Failed to update existing teacher");
+                                // Don't throw - this is not critical
+                            }
                         }
                     }
                 }
@@ -175,11 +223,11 @@ namespace BluebirdCore.Services
                 _logger.LogInformation($"📊 Final counts - Users: {finalUserCount}, Students: {finalStudentCount}");
 
                 // List all users for verification
-                var allUsers = await _context.Users.Select(u => new { u.Username, u.Role, u.IsActive }).ToListAsync();
+                var allUsers = await _context.Users.Select(u => new { u.Username, u.Email, u.Role, u.IsActive }).ToListAsync();
                 _logger.LogInformation("👥 All users in system:");
                 foreach (var user in allUsers)
                 {
-                    _logger.LogInformation($"   - {user.Username} ({user.Role}) - Active: {user.IsActive}");
+                    _logger.LogInformation($"   - {user.Username} ({user.Email}) [{user.Role}] - Active: {user.IsActive}");
                 }
             }
             catch (Exception ex)

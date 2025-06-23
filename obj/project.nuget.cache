@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "qywqmd8sy0M=",
+  "dgSpecHash": "i7vgPVPStrY=",
   "success": true,
   "projectFilePath": "/home/andre/Documents/Source/BluebirdCore/BluebirdCore.csproj",
   "expectedPackageFiles": [
@@ -8,6 +8,7 @@
     "/home/andre/.nuget/packages/azure.identity/1.11.4/azure.identity.1.11.4.nupkg.sha512",
     "/home/andre/.nuget/packages/bcrypt/1.0.0/bcrypt.1.0.0.nupkg.sha512",
     "/home/andre/.nuget/packages/bcrypt.net-next/4.0.3/bcrypt.net-next.4.0.3.nupkg.sha512",
+    "/home/andre/.nuget/packages/csvhelper/33.1.0/csvhelper.33.1.0.nupkg.sha512",
     "/home/andre/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",
     "/home/andre/.nuget/packages/microsoft.aspnetcore.authentication.jwtbearer/9.0.5/microsoft.aspnetcore.authentication.jwtbearer.9.0.5.nupkg.sha512",
     "/home/andre/.nuget/packages/microsoft.aspnetcore.openapi/9.0.4/microsoft.aspnetcore.openapi.9.0.4.nupkg.sha512",

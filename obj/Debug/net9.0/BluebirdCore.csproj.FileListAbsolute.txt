@@ -223,3 +223,4 @@
 /home/andre/Documents/Source/BluebirdCore/bin/Debug/net9.0/Media/pri-sig.png
 /home/andre/Documents/Source/BluebirdCore/bin/Debug/net9.0/Media/sec-sig.png
 /home/andre/Documents/Source/BluebirdCore/bin/Debug/net9.0/Media/chs-wm-logo.png
+/home/andre/Documents/Source/BluebirdCore/bin/Debug/net9.0/CsvHelper.dll

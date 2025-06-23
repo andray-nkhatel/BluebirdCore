@@ -374,10 +374,41 @@ public class TeacherAssignmentDto
         public bool IsActive { get; set; } = true;
     }
 
-    // UpdateAcademicYearDto.cs
+// UpdateAcademicYearDto.cs
 public class UpdateAcademicYearDto
 {
     public string Name { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 }
+
+public class BulkAssignmentDto
+{
+    public List<TeacherSubjectGradeAssignment> Assignments { get; set; }
+}
+
+public class TeacherSubjectGradeAssignment
+{
+    public int TeacherId { get; set; }
+    public int SubjectId { get; set; }
+    public int GradeId { get; set; }
+}
+
+public class AssignTeacherToSubjectMultipleGradesDto
+{
+    public int TeacherId { get; set; }
+    public List<int> GradeIds { get; set; } = new();
+    public string? Notes { get; set; }
+}
+
+
+
+public class ImportResult<T>
+    {
+        public int Successful { get; set; }
+        public int Failed { get; set; }
+        public int Total { get; set; }
+        public List<string> Errors { get; set; } = new();
+        public List<T> Imported { get; set; } = new();
+    }
+

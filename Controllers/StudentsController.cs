@@ -32,7 +32,7 @@ namespace BluebirdCore.Entities
                 LastName = s.LastName,
                 MiddleName = s.MiddleName,
                 StudentNumber = s.StudentNumber,
-                DateOfBirth = s.DateOfBirth,
+                DateOfBirth = s.DateOfBirth ?? DateTime.MinValue,
                 Gender = s.Gender,
                 Address = s.Address,
                 PhoneNumber = s.PhoneNumber,
@@ -73,7 +73,7 @@ namespace BluebirdCore.Entities
                 LastName = student.LastName,
                 MiddleName = student.MiddleName,
                 StudentNumber = student.StudentNumber,
-                DateOfBirth = student.DateOfBirth,
+                DateOfBirth = student.DateOfBirth ?? DateTime.MinValue,
                 Gender = student.Gender,
                 Address = student.Address,
                 PhoneNumber = student.PhoneNumber,
@@ -135,7 +135,7 @@ namespace BluebirdCore.Entities
                     LastName = updatedStudent.LastName,
                     MiddleName = updatedStudent.MiddleName,
                     StudentNumber = updatedStudent.StudentNumber,
-                    DateOfBirth = updatedStudent.DateOfBirth,
+                    DateOfBirth = updatedStudent.DateOfBirth ?? DateTime.MinValue,
                     Gender = updatedStudent.Gender,
                     Address = updatedStudent.Address,
                     PhoneNumber = updatedStudent.PhoneNumber,
@@ -197,7 +197,7 @@ namespace BluebirdCore.Entities
                     LastName = createdStudent.LastName,
                     MiddleName = createdStudent.MiddleName,
                     StudentNumber = createdStudent.StudentNumber,
-                    DateOfBirth = createdStudent.DateOfBirth,
+                    DateOfBirth = createdStudent.DateOfBirth ?? DateTime.MinValue,
                     Gender = createdStudent.Gender,
                     Address = createdStudent.Address,
                     PhoneNumber = createdStudent.PhoneNumber,
@@ -232,7 +232,7 @@ namespace BluebirdCore.Entities
                 LastName = s.LastName,
                 MiddleName = s.MiddleName,
                 StudentNumber = s.StudentNumber,
-                DateOfBirth = s.DateOfBirth,
+                DateOfBirth = s.DateOfBirth ?? DateTime.MinValue,
                 Gender = s.Gender,
                 GradeId = s.GradeId,
                 GradeName = s.Grade?.FullName,
@@ -281,13 +281,13 @@ namespace BluebirdCore.Entities
         {
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "Please select a valid CSV file" });
-
+        
             try
             {
                 using (var stream = file.OpenReadStream())
                 {
-                    var students = await _studentService.ImportStudentsFromCsvAsync(stream);
-                    return Ok(new { message = $"Successfully imported {students.Count()} students" });
+                    var result = await _studentService.ImportStudentsFromCsvAsync(stream);
+                    return Ok(result);
                 }
             }
             catch (Exception ex)

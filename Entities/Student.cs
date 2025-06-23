@@ -22,7 +22,7 @@ namespace BluebirdCore.Entities
         [StringLength(20)]
         public string? StudentNumber { get; set; }
         
-        public DateTime DateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
         
         [StringLength(10)]
         public string? Gender { get; set; }
@@ -43,7 +43,7 @@ namespace BluebirdCore.Entities
         public bool IsActive { get; set; } = true;
         public bool IsArchived { get; set; } = false;
         public DateTime EnrollmentDate { get; set; } = DateTime.UtcNow;
-        public DateTime ArchiveDate { get; set; }
+        public DateTime? ArchiveDate { get; set; }
         
         // Navigation properties
         public virtual Grade Grade { get; set; }

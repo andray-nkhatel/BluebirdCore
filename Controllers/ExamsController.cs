@@ -924,7 +924,7 @@ public async Task<ActionResult<IEnumerable<TeacherAssignmentDto>>> GetAllTeacher
 
 // Additional admin endpoint to get assignment statistics
 [HttpGet("admin/teacher-assignments/stats")]
-[Authorize(Roles = "Admin,SuperAdmin")]
+[Authorize(Roles = "Admin,Staff")]
 public async Task<ActionResult<object>> GetTeacherAssignmentStats()
 {
     try

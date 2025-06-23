@@ -4,6 +4,7 @@ using BluebirdCore.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BluebirdCore.Migrations
 {
     [DbContext(typeof(SchoolDbContext))]
-    partial class SchoolDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250621162537_MakeDateOfBirthNullable")]
+    partial class MakeDateOfBirthNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -55,11 +58,11 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 1,
-                            EndDate = new DateTime(2025, 12, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            EndDate = new DateTime(2024, 12, 5, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
                             IsClosed = false,
-                            Name = "2025",
-                            StartDate = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                            Name = "2024-2025",
+                            StartDate = new DateTime(2024, 9, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         });
                 });
 
@@ -169,9 +172,9 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 2,
-                            Description = "Second-test examination",
+                            Description = "Mid-term examination",
                             IsActive = true,
-                            Name = "Test-Two",
+                            Name = "Mid-Term",
                             Order = 2
                         },
                         new
@@ -192,19 +195,10 @@ namespace BluebirdCore.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CurriculumType")
-                        .HasColumnType("int");
-
                     b.Property<int?>("HomeroomTeacherId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("IntroducedYear")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsTransitional")
                         .HasColumnType("bit");
 
                     b.Property<int>("Level")
@@ -215,9 +209,6 @@ namespace BluebirdCore.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int?>("PhaseOutYear")
-                        .HasColumnType("int");
-
                     b.Property<int>("Section")
                         .HasColumnType("int");
 
@@ -225,10 +216,6 @@ namespace BluebirdCore.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("ValidForCohorts")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
@@ -240,10 +227,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 1,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 0,
+                            Level = -3,
                             Name = "Baby-Class",
                             Section = 0,
                             Stream = "Purple"
@@ -251,10 +236,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 2,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 1,
+                            Level = -2,
                             Name = "Baby-Class",
                             Section = 0,
                             Stream = "Green"
@@ -262,10 +245,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 3,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 2,
+                            Level = -1,
                             Name = "Baby-Class",
                             Section = 0,
                             Stream = "Orange"
@@ -273,10 +254,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 4,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 3,
+                            Level = 0,
                             Name = "Middle-Class",
                             Section = 0,
                             Stream = "Purple"
@@ -284,10 +263,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 5,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 4,
+                            Level = 1,
                             Name = "Middle-Class",
                             Section = 0,
                             Stream = "Green"
@@ -295,10 +272,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 6,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 5,
+                            Level = 2,
                             Name = "Middle-Class",
                             Section = 0,
                             Stream = "Orange"
@@ -306,10 +281,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 7,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 6,
+                            Level = 3,
                             Name = "Reception-Class",
                             Section = 0,
                             Stream = "Purple"
@@ -317,10 +290,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 8,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 7,
+                            Level = 4,
                             Name = "Reception-Class",
                             Section = 0,
                             Stream = "Green"
@@ -328,10 +299,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 9,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 8,
+                            Level = 5,
                             Name = "Reception-Class",
                             Section = 0,
                             Stream = "Orange"
@@ -339,10 +308,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 10,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 9,
+                            Level = 6,
                             Name = "Grade 1",
                             Section = 1,
                             Stream = "Purple"
@@ -350,10 +317,8 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 11,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 10,
+                            Level = 7,
                             Name = "Grade 1",
                             Section = 1,
                             Stream = "Green"
@@ -361,471 +326,11 @@ namespace BluebirdCore.Migrations
                         new
                         {
                             Id = 12,
-                            CurriculumType = 0,
                             IsActive = true,
-                            IsTransitional = false,
-                            Level = 11,
+                            Level = 8,
                             Name = "Grade 1",
                             Section = 1,
                             Stream = "Orange"
-                        },
-                        new
-                        {
-                            Id = 13,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 12,
-                            Name = "Grade 2",
-                            Section = 1,
-                            Stream = "Purple"
-                        },
-                        new
-                        {
-                            Id = 14,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 13,
-                            Name = "Grade 2",
-                            Section = 1,
-                            Stream = "Green"
-                        },
-                        new
-                        {
-                            Id = 15,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 14,
-                            Name = "Grade 2",
-                            Section = 1,
-                            Stream = "Orange"
-                        },
-                        new
-                        {
-                            Id = 16,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 15,
-                            Name = "Grade 3",
-                            Section = 1,
-                            Stream = "Purple"
-                        },
-                        new
-                        {
-                            Id = 17,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 16,
-                            Name = "Grade 3",
-                            Section = 1,
-                            Stream = "Green"
-                        },
-                        new
-                        {
-                            Id = 18,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 17,
-                            Name = "Grade 3",
-                            Section = 1,
-                            Stream = "Orange"
-                        },
-                        new
-                        {
-                            Id = 19,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 18,
-                            Name = "Grade 4",
-                            Section = 1,
-                            Stream = "Purple"
-                        },
-                        new
-                        {
-                            Id = 20,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 19,
-                            Name = "Grade 4",
-                            Section = 1,
-                            Stream = "Green"
-                        },
-                        new
-                        {
-                            Id = 21,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 20,
-                            Name = "Grade 4",
-                            Section = 1,
-                            Stream = "Orange"
-                        },
-                        new
-                        {
-                            Id = 22,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 21,
-                            Name = "Grade 5",
-                            Section = 1,
-                            Stream = "Purple"
-                        },
-                        new
-                        {
-                            Id = 23,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 22,
-                            Name = "Grade 5",
-                            Section = 1,
-                            Stream = "Green"
-                        },
-                        new
-                        {
-                            Id = 24,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 23,
-                            Name = "Grade 5",
-                            Section = 1,
-                            Stream = "Orange"
-                        },
-                        new
-                        {
-                            Id = 25,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 24,
-                            Name = "Grade 6",
-                            Section = 1,
-                            Stream = "Purple"
-                        },
-                        new
-                        {
-                            Id = 26,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 25,
-                            Name = "Grade 6",
-                            Section = 1,
-                            Stream = "Green"
-                        },
-                        new
-                        {
-                            Id = 27,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 26,
-                            Name = "Grade 6",
-                            Section = 1,
-                            Stream = "Orange"
-                        },
-                        new
-                        {
-                            Id = 28,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = true,
-                            Level = 27,
-                            Name = "Grade 7",
-                            PhaseOutYear = 2028,
-                            Section = 1,
-                            Stream = "Purple",
-                            ValidForCohorts = "2025,2026,2027,2028"
-                        },
-                        new
-                        {
-                            Id = 29,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = true,
-                            Level = 28,
-                            Name = "Grade 7",
-                            PhaseOutYear = 2028,
-                            Section = 1,
-                            Stream = "Green",
-                            ValidForCohorts = "2025,2026,2027,2028"
-                        },
-                        new
-                        {
-                            Id = 30,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = true,
-                            Level = 29,
-                            Name = "Grade 7",
-                            PhaseOutYear = 2028,
-                            Section = 1,
-                            Stream = "Orange",
-                            ValidForCohorts = "2025,2026,2027,2028"
-                        },
-                        new
-                        {
-                            Id = 31,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 30,
-                            Name = "Grade 8",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 32,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 31,
-                            Name = "Grade 8",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 33,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 32,
-                            Name = "Grade 9",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 34,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 33,
-                            Name = "Grade 9",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 35,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 34,
-                            Name = "Grade 10",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 36,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 35,
-                            Name = "Grade 10",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 37,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 36,
-                            Name = "Grade 11",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 38,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 37,
-                            Name = "Grade 11",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 39,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 38,
-                            Name = "Grade 12",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 40,
-                            CurriculumType = 0,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 39,
-                            Name = "Grade 12",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 41,
-                            CurriculumType = 1,
-                            IntroducedYear = 2025,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 27,
-                            Name = "Form 1",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 42,
-                            CurriculumType = 1,
-                            IntroducedYear = 2025,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 28,
-                            Name = "Form 1",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 43,
-                            CurriculumType = 1,
-                            IntroducedYear = 2026,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 30,
-                            Name = "Form 2",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 44,
-                            CurriculumType = 1,
-                            IntroducedYear = 2026,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 31,
-                            Name = "Form 2",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 45,
-                            CurriculumType = 1,
-                            IntroducedYear = 2027,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 33,
-                            Name = "Form 3",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 46,
-                            CurriculumType = 1,
-                            IntroducedYear = 2027,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 34,
-                            Name = "Form 3",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 47,
-                            CurriculumType = 1,
-                            IntroducedYear = 2028,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 36,
-                            Name = "Form 4",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 48,
-                            CurriculumType = 1,
-                            IntroducedYear = 2028,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 37,
-                            Name = "Form 4",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 49,
-                            CurriculumType = 1,
-                            IntroducedYear = 2029,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 39,
-                            Name = "Form 5",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 50,
-                            CurriculumType = 1,
-                            IntroducedYear = 2029,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 40,
-                            Name = "Form 5",
-                            Section = 2,
-                            Stream = "Blue"
-                        },
-                        new
-                        {
-                            Id = 51,
-                            CurriculumType = 1,
-                            IntroducedYear = 2030,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 39,
-                            Name = "Form 6",
-                            Section = 2,
-                            Stream = "Grey"
-                        },
-                        new
-                        {
-                            Id = 52,
-                            CurriculumType = 1,
-                            IntroducedYear = 2030,
-                            IsActive = true,
-                            IsTransitional = false,
-                            Level = 40,
-                            Name = "Form 6",
-                            Section = 2,
-                            Stream = "Blue"
                         });
                 });
 
