@@ -268,7 +268,7 @@ namespace BluebirdCore.Data
                 new Grade { Id = 40, Name = "Grade 12", Stream = "Blue", Level = 39, Section = SchoolSection.Secondary, CurriculumType = CurriculumType.Legacy },
 
                 // CompetencyBased SYSTEM - SECONDARY SECTION (Forms 1-6) - Introduced 2024
-                // Form 1 - Starts 2024 (for students who were in Grade 7 in 2024) - Levels 27-29
+                // Form 1 - Starts 2025 (for students who were in Grade 7 in 2024) - Levels 27-29
                 new Grade { Id = 41, Name = "Form 1", Stream = "Grey", Level = 27, Section = SchoolSection.Secondary, CurriculumType = CurriculumType.CompetencyBased, IntroducedYear = 2025 },
                 new Grade { Id = 42, Name = "Form 1", Stream = "Blue", Level = 28, Section = SchoolSection.Secondary, CurriculumType = CurriculumType.CompetencyBased, IntroducedYear = 2025 },
                

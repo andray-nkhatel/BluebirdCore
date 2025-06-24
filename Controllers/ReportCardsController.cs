@@ -2,6 +2,7 @@ using BluebirdCore.DTOs;
 using BluebirdCore.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IO.Compression;
 
 namespace BluebirdCore.Controllers
 {
@@ -129,6 +130,45 @@ namespace BluebirdCore.Controllers
         {
             await _reportCardService.DeleteAllReportCardsAsync();
             return NoContent();
+        }
+
+    
+
+
+        /// <summary>
+        /// Download all report cards for a class as a ZIP file (Admin only)
+        /// </summary>
+        [HttpGet("download/class/{gradeId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DownloadClassReportCardsZip(int gradeId, [FromQuery] int academicYear, [FromQuery] int term)
+        {
+            var adminId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier).Value);
+
+            // Generate report cards if not already generated
+            var reportCards = await _reportCardService.GenerateClassReportCardsAsync(gradeId, academicYear, term, adminId);
+
+            // Prepare ZIP in memory
+            using (var ms = new MemoryStream())
+            {
+                using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
+                {
+                    foreach (var rc in reportCards)
+                    {
+                        var pdfBytes = await _reportCardService.GetReportCardPdfAsync(rc.Id);
+                        if (pdfBytes != null && pdfBytes.Length > 0)
+                        {
+                            var entry = zip.CreateEntry($"ReportCard_{rc.Student?.FullName ?? rc.StudentId.ToString()}.pdf");
+                            using (var entryStream = entry.Open())
+                            {
+                                await entryStream.WriteAsync(pdfBytes, 0, pdfBytes.Length);
+                            }
+                        }
+                    }
+                }
+                ms.Position = 0;
+                var fileName = $"ReportCards_Grade{gradeId}_{academicYear}_Term{term}.zip";
+                return File(ms.ToArray(), "application/zip", fileName);
+            }
         }
     }
 }

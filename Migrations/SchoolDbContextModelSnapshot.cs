@@ -879,10 +879,6 @@ namespace BluebirdCore.Migrations
                     b.Property<int>("GradeId")
                         .HasColumnType("int");
 
-                    b.Property<byte[]>("PdfContent")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
-
                     b.Property<int>("StudentId")
                         .HasColumnType("int");
 

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BluebirdCore.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -93,7 +93,12 @@ namespace BluebirdCore.Migrations
                     Level = table.Column<int>(type: "int", nullable: false),
                     Section = table.Column<int>(type: "int", nullable: false),
                     HomeroomTeacherId = table.Column<int>(type: "int", nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CurriculumType = table.Column<int>(type: "int", nullable: false),
+                    IsTransitional = table.Column<bool>(type: "bit", nullable: false),
+                    PhaseOutYear = table.Column<int>(type: "int", nullable: true),
+                    IntroducedYear = table.Column<int>(type: "int", nullable: true),
+                    ValidForCohorts = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -144,7 +149,7 @@ namespace BluebirdCore.Migrations
                     LastName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     MiddleName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     StudentNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Gender = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
                     Address = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     PhoneNumber = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
@@ -154,7 +159,7 @@ namespace BluebirdCore.Migrations
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     IsArchived = table.Column<bool>(type: "bit", nullable: false),
                     EnrollmentDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ArchiveDate = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    ArchiveDate = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -216,7 +221,11 @@ namespace BluebirdCore.Migrations
                     AcademicYear = table.Column<int>(type: "int", nullable: false),
                     Term = table.Column<int>(type: "int", nullable: false),
                     RecordedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    RecordedBy = table.Column<int>(type: "int", nullable: false)
+                    RecordedBy = table.Column<int>(type: "int", nullable: false),
+                    Comments = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CommentsUpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CommentsUpdatedBy = table.Column<int>(type: "int", nullable: true),
+                    CommentsUpdatedByTeacherId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -246,6 +255,11 @@ namespace BluebirdCore.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_ExamScores_Users_CommentsUpdatedByTeacherId",
+                        column: x => x.CommentsUpdatedByTeacherId,
+                        principalTable: "Users",
+                        principalColumn: "Id");
+                    table.ForeignKey(
                         name: "FK_ExamScores_Users_RecordedBy",
                         column: x => x.RecordedBy,
                         principalTable: "Users",
@@ -263,7 +277,6 @@ namespace BluebirdCore.Migrations
                     GradeId = table.Column<int>(type: "int", nullable: false),
                     AcademicYear = table.Column<int>(type: "int", nullable: false),
                     Term = table.Column<int>(type: "int", nullable: false),
-                    FilePath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     GeneratedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     GeneratedBy = table.Column<int>(type: "int", nullable: false)
                 },
@@ -320,7 +333,7 @@ namespace BluebirdCore.Migrations
             migrationBuilder.InsertData(
                 table: "AcademicYears",
                 columns: new[] { "Id", "EndDate", "IsActive", "IsClosed", "Name", "StartDate" },
-                values: new object[] { 1, new DateTime(2024, 12, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), true, false, "2024-2025", new DateTime(2024, 9, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) });
+                values: new object[] { 1, new DateTime(2025, 12, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), true, false, "2025", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) });
 
             migrationBuilder.InsertData(
                 table: "ExamTypes",
@@ -328,27 +341,67 @@ namespace BluebirdCore.Migrations
                 values: new object[,]
                 {
                     { 1, "First test of the term", true, "Test-One", 1 },
-                    { 2, "Mid-term examination", true, "Mid-Term", 2 },
+                    { 2, "Second-test examination", true, "Test-Two", 2 },
                     { 3, "End of term examination", true, "End-of-Term", 3 }
                 });
 
             migrationBuilder.InsertData(
                 table: "Grades",
-                columns: new[] { "Id", "HomeroomTeacherId", "IsActive", "Level", "Name", "Section", "Stream" },
+                columns: new[] { "Id", "CurriculumType", "HomeroomTeacherId", "IntroducedYear", "IsActive", "IsTransitional", "Level", "Name", "PhaseOutYear", "Section", "Stream", "ValidForCohorts" },
                 values: new object[,]
                 {
-                    { 1, null, true, -3, "Baby-Class", 0, "Purple" },
-                    { 2, null, true, -2, "Baby-Class", 0, "Green" },
-                    { 3, null, true, -1, "Baby-Class", 0, "Orange" },
-                    { 4, null, true, 0, "Middle-Class", 0, "Purple" },
-                    { 5, null, true, 1, "Middle-Class", 0, "Green" },
-                    { 6, null, true, 2, "Middle-Class", 0, "Orange" },
-                    { 7, null, true, 3, "Reception-Class", 0, "Purple" },
-                    { 8, null, true, 4, "Reception-Class", 0, "Green" },
-                    { 9, null, true, 5, "Reception-Class", 0, "Orange" },
-                    { 10, null, true, 6, "Grade 1", 1, "Purple" },
-                    { 11, null, true, 7, "Grade 1", 1, "Green" },
-                    { 12, null, true, 8, "Grade 1", 1, "Orange" }
+                    { 1, 0, null, null, true, false, 0, "Baby-Class", null, 0, "Purple", null },
+                    { 2, 0, null, null, true, false, 1, "Baby-Class", null, 0, "Green", null },
+                    { 3, 0, null, null, true, false, 2, "Baby-Class", null, 0, "Orange", null },
+                    { 4, 0, null, null, true, false, 3, "Middle-Class", null, 0, "Purple", null },
+                    { 5, 0, null, null, true, false, 4, "Middle-Class", null, 0, "Green", null },
+                    { 6, 0, null, null, true, false, 5, "Middle-Class", null, 0, "Orange", null },
+                    { 7, 0, null, null, true, false, 6, "Reception-Class", null, 0, "Purple", null },
+                    { 8, 0, null, null, true, false, 7, "Reception-Class", null, 0, "Green", null },
+                    { 9, 0, null, null, true, false, 8, "Reception-Class", null, 0, "Orange", null },
+                    { 10, 0, null, null, true, false, 9, "Grade 1", null, 1, "Purple", null },
+                    { 11, 0, null, null, true, false, 10, "Grade 1", null, 1, "Green", null },
+                    { 12, 0, null, null, true, false, 11, "Grade 1", null, 1, "Orange", null },
+                    { 13, 0, null, null, true, false, 12, "Grade 2", null, 1, "Purple", null },
+                    { 14, 0, null, null, true, false, 13, "Grade 2", null, 1, "Green", null },
+                    { 15, 0, null, null, true, false, 14, "Grade 2", null, 1, "Orange", null },
+                    { 16, 0, null, null, true, false, 15, "Grade 3", null, 1, "Purple", null },
+                    { 17, 0, null, null, true, false, 16, "Grade 3", null, 1, "Green", null },
+                    { 18, 0, null, null, true, false, 17, "Grade 3", null, 1, "Orange", null },
+                    { 19, 0, null, null, true, false, 18, "Grade 4", null, 1, "Purple", null },
+                    { 20, 0, null, null, true, false, 19, "Grade 4", null, 1, "Green", null },
+                    { 21, 0, null, null, true, false, 20, "Grade 4", null, 1, "Orange", null },
+                    { 22, 0, null, null, true, false, 21, "Grade 5", null, 1, "Purple", null },
+                    { 23, 0, null, null, true, false, 22, "Grade 5", null, 1, "Green", null },
+                    { 24, 0, null, null, true, false, 23, "Grade 5", null, 1, "Orange", null },
+                    { 25, 0, null, null, true, false, 24, "Grade 6", null, 1, "Purple", null },
+                    { 26, 0, null, null, true, false, 25, "Grade 6", null, 1, "Green", null },
+                    { 27, 0, null, null, true, false, 26, "Grade 6", null, 1, "Orange", null },
+                    { 28, 0, null, null, true, true, 27, "Grade 7", 2028, 1, "Purple", "2025,2026,2027,2028" },
+                    { 29, 0, null, null, true, true, 28, "Grade 7", 2028, 1, "Green", "2025,2026,2027,2028" },
+                    { 30, 0, null, null, true, true, 29, "Grade 7", 2028, 1, "Orange", "2025,2026,2027,2028" },
+                    { 31, 0, null, null, true, false, 30, "Grade 8", null, 2, "Grey", null },
+                    { 32, 0, null, null, true, false, 31, "Grade 8", null, 2, "Blue", null },
+                    { 33, 0, null, null, true, false, 32, "Grade 9", null, 2, "Grey", null },
+                    { 34, 0, null, null, true, false, 33, "Grade 9", null, 2, "Blue", null },
+                    { 35, 0, null, null, true, false, 34, "Grade 10", null, 2, "Grey", null },
+                    { 36, 0, null, null, true, false, 35, "Grade 10", null, 2, "Blue", null },
+                    { 37, 0, null, null, true, false, 36, "Grade 11", null, 2, "Grey", null },
+                    { 38, 0, null, null, true, false, 37, "Grade 11", null, 2, "Blue", null },
+                    { 39, 0, null, null, true, false, 38, "Grade 12", null, 2, "Grey", null },
+                    { 40, 0, null, null, true, false, 39, "Grade 12", null, 2, "Blue", null },
+                    { 41, 1, null, 2025, true, false, 27, "Form 1", null, 2, "Grey", null },
+                    { 42, 1, null, 2025, true, false, 28, "Form 1", null, 2, "Blue", null },
+                    { 43, 1, null, 2026, true, false, 30, "Form 2", null, 2, "Grey", null },
+                    { 44, 1, null, 2026, true, false, 31, "Form 2", null, 2, "Blue", null },
+                    { 45, 1, null, 2027, true, false, 33, "Form 3", null, 2, "Grey", null },
+                    { 46, 1, null, 2027, true, false, 34, "Form 3", null, 2, "Blue", null },
+                    { 47, 1, null, 2028, true, false, 36, "Form 4", null, 2, "Grey", null },
+                    { 48, 1, null, 2028, true, false, 37, "Form 4", null, 2, "Blue", null },
+                    { 49, 1, null, 2029, true, false, 39, "Form 5", null, 2, "Grey", null },
+                    { 50, 1, null, 2029, true, false, 40, "Form 5", null, 2, "Blue", null },
+                    { 51, 1, null, 2030, true, false, 39, "Form 6", null, 2, "Grey", null },
+                    { 52, 1, null, 2030, true, false, 40, "Form 6", null, 2, "Blue", null }
                 });
 
             migrationBuilder.InsertData(
@@ -370,6 +423,11 @@ namespace BluebirdCore.Migrations
                 table: "Users",
                 columns: new[] { "Id", "CreatedAt", "Email", "FullName", "IsActive", "LastLoginAt", "PasswordHash", "Role", "Username" },
                 values: new object[] { 1, new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "admin@school.edu", "System Administrator", true, null, "$2a$12$Y5Cr10SW4OuJq6qxj7PXtOhZvb7loVQqIRRwcrH8hsdsoeRCririq", 1, "admin" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ExamScores_CommentsUpdatedByTeacherId",
+                table: "ExamScores",
+                column: "CommentsUpdatedByTeacherId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ExamScores_ExamTypeId",

@@ -121,7 +121,7 @@ namespace BluebirdCore.Entities
             existingStudent.GradeId = updateStudentDto.GradeId;
             existingStudent.IsActive = updateStudentDto.IsActive;
             // existingStudent.IsArchived = updateStudentDto.IsArchived;
-            
+
             // Add any other fields as needed
 
             try
@@ -281,7 +281,7 @@ namespace BluebirdCore.Entities
         {
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "Please select a valid CSV file" });
-        
+
             try
             {
                 using (var stream = file.OpenReadStream())
@@ -294,6 +294,20 @@ namespace BluebirdCore.Entities
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+        
+        /// <summary>
+        /// Delete a student by ID (Admin only)
+        /// </summary>
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> DeleteStudent(int id)
+        {
+            var success = await _studentService.DeleteStudentAsync(id);
+            if (!success)
+                return NotFound();
+
+            return Ok(new { message = "Student deleted successfully" });
         }
     }
 }

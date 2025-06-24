@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BluebirdCore")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+39ce99cc90923d1c83a1fef348c4db311849a58f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6c9475ddb5fde094a8c82f40c62e4e36a4a22547")]
 [assembly: System.Reflection.AssemblyProductAttribute("BluebirdCore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BluebirdCore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

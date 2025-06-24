@@ -3,6 +3,7 @@ using BluebirdCore.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -23,8 +24,10 @@ namespace BluebirdCore.Services
         private readonly ReportCardPdfService _pdfService;
         private readonly ILogger<ReportCardService> _logger;
         private readonly IMemoryCache _cache;
+        private readonly IServiceProvider _serviceProvider;
 
-         private readonly IServiceProvider _serviceProvider;
+        // Semaphore for concurrent operations - increased since we're not storing PDFs
+        private readonly SemaphoreSlim _concurrencySemaphore;
 
         public ReportCardService(
             SchoolDbContext context,
@@ -38,15 +41,17 @@ namespace BluebirdCore.Services
             _logger = logger;
             _cache = cache;
             _serviceProvider = serviceProvider;
+            
+            // Can increase concurrency since we're not storing PDFs in memory
+            _concurrencySemaphore = new SemaphoreSlim(Environment.ProcessorCount * 2, Environment.ProcessorCount * 2);
         }
 
-         public async Task DeleteAllReportCardsAsync()
+        public async Task DeleteAllReportCardsAsync()
         {
             var allReportCards = _context.ReportCards.ToList();
             _context.ReportCards.RemoveRange(allReportCards);
             await _context.SaveChangesAsync();
         }
-
 
         public async Task<ReportCard> GenerateReportCardAsync(int studentId, int academicYear, int term, int generatedBy)
         {
@@ -63,151 +68,192 @@ namespace BluebirdCore.Services
 
                 if (existingReportCard != null)
                 {
-                    _logger.LogWarning("Report card already exists for Student {StudentId}, Year {Year}, Term {Term}",
+                    _logger.LogInformation("Report card already exists for Student {StudentId}, Year {Year}, Term {Term}",
                         studentId, academicYear, term);
                     return existingReportCard;
                 }
 
-                // Single query to get all required data
-                var studentData = await GetStudentWithRelatedDataAsync(studentId);
-                if (studentData.student == null)
+                // Validate that student and user exist
+                var studentExists = await _context.Students.AnyAsync(s => s.Id == studentId);
+                if (!studentExists)
                 {
                     throw new ArgumentException($"Student with ID {studentId} not found");
                 }
 
-                var generatedByUser = await GetUserAsync(generatedBy);
-                if (generatedByUser == null)
+                var userExists = await _context.Users.AnyAsync(u => u.Id == generatedBy);
+                if (!userExists)
                 {
                     throw new ArgumentException($"User with ID {generatedBy} not found");
                 }
 
-                var scores = await GetStudentScoresAsync(studentId, academicYear, term);
+                // Get student's grade for the report card record
+                var student = await _context.Students
+                    .Select(s => new { s.Id, s.GradeId })
+                    .FirstAsync(s => s.Id == studentId);
 
-                // Generate PDF in memory
-                byte[] pdfBytes;
-                try
-                {
-                    pdfBytes = await _pdfService.GenerateReportCardPdfAsync(
-                        studentData.student, scores, academicYear, term);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to generate PDF for Student {StudentId}", studentId);
-                    throw new InvalidOperationException("Failed to generate report card PDF", ex);
-                }
-
-                // Create report card entity - ONLY set foreign keys, not navigation properties
+                // Create report card entity WITHOUT PDF content
                 var reportCard = new ReportCard
                 {
                     StudentId = studentId,
-                    GradeId = studentData.student.GradeId,
+                    GradeId = student.GradeId,
                     AcademicYear = academicYear,
                     Term = term,
-                    PdfContent = pdfBytes,
+                    // PdfContent = null, // Don't store PDF content
                     GeneratedBy = generatedBy
-
                 };
 
                 _context.ReportCards.Add(reportCard);
                 await _context.SaveChangesAsync();
 
-                // If you need to return the report card with navigation properties loaded,
-                // reload it from the database after saving
+                // Return the report card with navigation properties loaded
                 var savedReportCard = await _context.ReportCards
                     .Include(rc => rc.Student)
                     .Include(rc => rc.Grade)
                     .Include(rc => rc.GeneratedByUser)
                     .FirstAsync(rc => rc.Id == reportCard.Id);
 
-                _logger.LogInformation("Report card generated successfully for Student {StudentId}, Year {Year}, Term {Term}",
+                _logger.LogInformation("Report card record created successfully for Student {StudentId}, Year {Year}, Term {Term}",
                     studentId, academicYear, term);
 
                 return savedReportCard;
             }
-            catch (Exception ex) when (!(ex is ArgumentException || ex is InvalidOperationException))
+            catch (Exception ex) when (!(ex is ArgumentException))
             {
-                _logger.LogError(ex, "Unexpected error generating report card for Student {StudentId}", studentId);
-                throw new InvalidOperationException("An error occurred while generating the report card", ex);
+                _logger.LogError(ex, "Unexpected error creating report card record for Student {StudentId}", studentId);
+                throw new InvalidOperationException("An error occurred while creating the report card record", ex);
             }
         }
-
-
-
 
         public async Task<IEnumerable<ReportCard>> GenerateClassReportCardsAsync(int gradeId, int academicYear, int term, int generatedBy)
-    {
-        try
         {
-            ValidateReportCardParameters(gradeId, academicYear, term, generatedBy);
-
-            var students = await _context.Students
-                .Where(s => s.GradeId == gradeId && !s.IsArchived)
-                .Select(s => new { s.Id, s.GradeId })
-                .ToListAsync();
-
-            if (!students.Any())
+            try
             {
-                _logger.LogWarning("No active students found for Grade {GradeId}", gradeId);
-                return Enumerable.Empty<ReportCard>();
-            }
+                ValidateReportCardParameters(gradeId, academicYear, term, generatedBy);
 
-            var reportCards = new List<ReportCard>();
-            var failedGenerations = new List<(int StudentId, Exception Error)>();
+                var students = await _context.Students
+                    .Where(s => s.GradeId == gradeId && !s.IsArchived)
+                    .Select(s => new { s.Id, s.GradeId })
+                    .ToListAsync();
 
-            // Process in batches to avoid memory issues
-            const int batchSize = 10;
-            for (int i = 0; i < students.Count; i += batchSize)
-            {
-                var batch = students.Skip(i).Take(batchSize);
-                var batchTasks = batch.Select(async student =>
+                if (!students.Any())
                 {
-                    try
-                    {
-                        // Create a new scope for each parallel operation
-                        using var scope = _serviceProvider.CreateScope();
-                        var scopedContext = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+                    _logger.LogWarning("No active students found for Grade {GradeId}", gradeId);
+                    return Enumerable.Empty<ReportCard>();
+                }
 
-                        return await GenerateReportCardWithSeparateContextAsync(
-                            scopedContext, student.Id, academicYear, term, generatedBy);
-                    }
-                    catch (Exception ex)
+                // Validate user exists once
+                var userExists = await _context.Users.AnyAsync(u => u.Id == generatedBy);
+                if (!userExists)
+                {
+                    throw new ArgumentException($"User with ID {generatedBy} not found");
+                }
+
+                var reportCards = new ConcurrentBag<ReportCard>();
+                var failedGenerations = new ConcurrentBag<(int StudentId, string ErrorMessage, Exception Error)>();
+
+                // Can increase batch size since we're not generating PDFs in memory
+                const int batchSize = 15;
+                const int maxRetries = 2;
+
+                for (int i = 0; i < students.Count; i += batchSize)
+                {
+                    var batch = students.Skip(i).Take(batchSize);
+                    var batchTasks = batch.Select(async student =>
                     {
-                        _logger.LogError(ex, "Failed to generate report card for Student {StudentId}", student.Id);
-                        lock (failedGenerations)
+                        await _concurrencySemaphore.WaitAsync();
+                        try
                         {
-                            failedGenerations.Add((student.Id, ex));
+                            for (int attempt = 1; attempt <= maxRetries; attempt++)
+                            {
+                                try
+                                {
+                                    if (attempt > 1)
+                                    {
+                                        await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(50, 200)));
+                                    }
+
+                                    using var scope = _serviceProvider.CreateScope();
+                                    var scopedContext = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+
+                                    var reportCard = await CreateReportCardRecordAsync(
+                                        scopedContext, student.Id, student.GradeId, academicYear, term, generatedBy);
+                                    
+                                    if (reportCard != null)
+                                    {
+                                        reportCards.Add(reportCard);
+                                        _logger.LogDebug("Successfully created report card record for Student {StudentId} on attempt {Attempt}", 
+                                            student.Id, attempt);
+                                        return;
+                                    }
+                                }
+                                catch (Exception ex) when (attempt < maxRetries)
+                                {
+                                    _logger.LogWarning(ex, "Attempt {Attempt} failed for Student {StudentId}, retrying...", 
+                                        attempt, student.Id);
+                                    continue;
+                                }
+                                catch (Exception ex)
+                                {
+                                    var errorMessage = GetDetailedErrorMessage(ex);
+                                    _logger.LogError(ex, "All attempts failed for Student {StudentId}. Error: {ErrorMessage}", 
+                                        student.Id, errorMessage);
+                                    failedGenerations.Add((student.Id, errorMessage, ex));
+                                    return;
+                                }
+                            }
                         }
-                        return null;
+                        finally
+                        {
+                            _concurrencySemaphore.Release();
+                        }
+                    });
+
+                    await Task.WhenAll(batchTasks);
+
+                    // Log progress for large batches
+                    if (students.Count > 20)
+                    {
+                        var processed = Math.Min(i + batchSize, students.Count);
+                        _logger.LogInformation("Processed {Processed}/{Total} students in Grade {GradeId}", 
+                            processed, students.Count, gradeId);
                     }
-                });
+                }
 
-                var batchResults = await Task.WhenAll(batchTasks);
-                reportCards.AddRange(batchResults.Where(rc => rc != null));
+                var successCount = reportCards.Count;
+                var failureCount = failedGenerations.Count;
+
+                _logger.LogInformation("Created {SuccessCount} report card records for Grade {GradeId}. {FailedCount} failed.",
+                    successCount, gradeId, failureCount);
+
+                // Log detailed failure information
+                if (failedGenerations.Any())
+                {
+                    var failureGroups = failedGenerations
+                        .GroupBy(f => f.ErrorMessage)
+                        .Select(g => new { ErrorMessage = g.Key, Count = g.Count(), StudentIds = g.Select(x => x.StudentId).ToArray() })
+                        .ToList();
+
+                    foreach (var group in failureGroups)
+                    {
+                        var studentIdsList = string.Join(", ", group.StudentIds.Take(10));
+                        var moreStudents = group.StudentIds.Length > 10 ? $" and {group.StudentIds.Length - 10} more" : "";
+                        
+                        _logger.LogError("Error '{ErrorMessage}' occurred for {Count} students: {StudentIds}{MoreStudents}",
+                            group.ErrorMessage, group.Count, studentIdsList, moreStudents);
+                    }
+                }
+
+                return reportCards.ToList();
             }
-
-            _logger.LogInformation("Generated {SuccessCount} report cards for Grade {GradeId}. {FailedCount} failed.",
-                reportCards.Count, gradeId, failedGenerations.Count);
-
-            if (failedGenerations.Any())
+            catch (Exception ex)
             {
-                var failedStudentIds = string.Join(", ", failedGenerations.Select(f => f.StudentId));
-                _logger.LogWarning("Failed to generate report cards for students: {FailedStudents}", failedStudentIds);
+                _logger.LogError(ex, "Error creating class report card records for Grade {GradeId}", gradeId);
+                throw new InvalidOperationException("Failed to create class report card records", ex);
             }
-
-            return reportCards;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error generating class report cards for Grade {GradeId}", gradeId);
-            throw new InvalidOperationException("Failed to generate class report cards", ex);
-        }
-    }
 
-
-
-
-        private async Task<ReportCard> GenerateReportCardWithSeparateContextAsync(
-    SchoolDbContext context, int studentId, int academicYear, int term, int generatedBy)
+        private async Task<ReportCard> CreateReportCardRecordAsync(
+            SchoolDbContext context, int studentId, int gradeId, int academicYear, int term, int generatedBy)
         {
             // Check for existing report card
             var existingReportCard = await context.ReportCards
@@ -220,43 +266,32 @@ namespace BluebirdCore.Services
                 return existingReportCard;
             }
 
-            var student = await context.Students
-                .Include(s => s.Grade)
-                .FirstOrDefaultAsync(s => s.Id == studentId);
+            // Verify student still exists (could have been archived)
+            var studentExists = await context.Students
+                .AnyAsync(s => s.Id == studentId && !s.IsArchived);
 
-            if (student == null)
+            if (!studentExists)
             {
-                throw new ArgumentException($"Student with ID {studentId} not found");
+                throw new ArgumentException($"Student with ID {studentId} not found or is archived");
             }
-
-            var scores = await context.ExamScores
-                .Include(es => es.Subject)
-                .Include(es => es.ExamType)
-                .Where(es => es.StudentId == studentId &&
-                           es.AcademicYear == academicYear &&
-                           es.Term == term)
-                .ToListAsync();
-
-            var pdfBytes = await _pdfService.GenerateReportCardPdfAsync(
-                student, scores, academicYear, term);
 
             var reportCard = new ReportCard
             {
                 StudentId = studentId,
-                GradeId = student.GradeId,
+                GradeId = gradeId,
                 AcademicYear = academicYear,
                 Term = term,
-                PdfContent = pdfBytes,
+                // PdfContent = null, // Don't store PDF - generate on demand
                 GeneratedBy = generatedBy
             };
 
             context.ReportCards.Add(reportCard);
-            await context.SaveChangesAsync(); // Save immediately with separate context
+            await context.SaveChangesAsync();
 
             return reportCard;
         }
 
-
+        // This is where the magic happens - generate PDF on demand
         public async Task<byte[]> GetReportCardPdfAsync(int reportCardId)
         {
             try
@@ -266,25 +301,58 @@ namespace BluebirdCore.Services
                     throw new ArgumentException("Invalid report card ID", nameof(reportCardId));
                 }
 
-                var reportCard = await _context.ReportCards.FindAsync(reportCardId);
+                // Check cache first - cache the PDF for a short time to avoid regenerating immediately
+                string cacheKey = $"report_card_pdf_{reportCardId}";
+                if (_cache.TryGetValue(cacheKey, out byte[] cachedPdf))
+                {
+                    _logger.LogDebug("Returning cached PDF for Report Card {ReportCardId}", reportCardId);
+                    return cachedPdf;
+                }
+
+                // Get report card details
+                var reportCard = await _context.ReportCards
+                    .Include(rc => rc.Student)
+                        .ThenInclude(s => s.Grade)
+                    .FirstOrDefaultAsync(rc => rc.Id == reportCardId);
+
                 if (reportCard == null)
                 {
                     _logger.LogWarning("Report card with ID {ReportCardId} not found", reportCardId);
                     return null;
                 }
 
-                if (reportCard.PdfContent == null || reportCard.PdfContent.Length == 0)
+                // Get student scores for the specific term/year
+                var scores = await _context.ExamScores
+                    .Include(es => es.Subject)
+                    .Include(es => es.ExamType)
+                    .Where(es => es.StudentId == reportCard.StudentId &&
+                               es.AcademicYear == reportCard.AcademicYear &&
+                               es.Term == reportCard.Term)
+                    .ToListAsync();
+
+                // Generate PDF on demand
+                byte[] pdfBytes;
+                try
                 {
-                    _logger.LogWarning("PDF content not found for Report Card {ReportCardId}", reportCardId);
-                    return null;
+                    pdfBytes = await _pdfService.GenerateReportCardPdfAsync(
+                        reportCard.Student, scores, reportCard.AcademicYear, reportCard.Term);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to generate PDF for Report Card {ReportCardId}", reportCardId);
+                    throw new InvalidOperationException("Failed to generate report card PDF", ex);
                 }
 
-                return reportCard.PdfContent;
+                // Cache for 10 minutes to avoid immediate regeneration
+                _cache.Set(cacheKey, pdfBytes, TimeSpan.FromMinutes(10));
+
+                _logger.LogInformation("Generated PDF on demand for Report Card {ReportCardId}", reportCardId);
+                return pdfBytes;
             }
-            catch (Exception ex) when (!(ex is ArgumentException))
+            catch (Exception ex) when (!(ex is ArgumentException || ex is InvalidOperationException))
             {
-                _logger.LogError(ex, "Error retrieving PDF for Report Card {ReportCardId}", reportCardId);
-                throw new InvalidOperationException("Failed to retrieve report card PDF", ex);
+                _logger.LogError(ex, "Error generating PDF for Report Card {ReportCardId}", reportCardId);
+                throw new InvalidOperationException("Failed to generate report card PDF", ex);
             }
         }
 
@@ -324,89 +392,20 @@ namespace BluebirdCore.Services
             }
         }
 
+        private string GetDetailedErrorMessage(Exception ex)
+        {
+            return ex switch
+            {
+                ArgumentException => "Invalid argument provided",
+                DbUpdateException dbEx => $"Database error: {dbEx.InnerException?.Message ?? dbEx.Message}",
+                InvalidOperationException => "Operation failed",
+                TimeoutException => "Operation timed out",
+                OutOfMemoryException => "Insufficient memory",
+                _ => ex.GetType().Name
+            };
+        }
+
         #region Private Helper Methods
-
-
-private async Task<ReportCard> GenerateReportCardInternalAsync(int studentId, int academicYear, int term, int generatedBy)
-{
-    // Check for existing report card
-    var existingReportCard = await _context.ReportCards
-        .FirstOrDefaultAsync(rc => rc.StudentId == studentId &&
-                                 rc.AcademicYear == academicYear &&
-                                 rc.Term == term);
-
-    if (existingReportCard != null)
-    {
-        return existingReportCard;
-    }
-
-    var studentData = await GetStudentWithRelatedDataAsync(studentId);
-    if (studentData.student == null)
-    {
-        throw new ArgumentException($"Student with ID {studentId} not found");
-    }
-
-    var generatedByUser = await GetUserAsync(generatedBy);
-    var scores = await GetStudentScoresAsync(studentId, academicYear, term);
-
-    var pdfBytes = await _pdfService.GenerateReportCardPdfAsync(
-        studentData.student, scores, academicYear, term);
-
-    // Create report card entity - ONLY set foreign keys
-    var reportCard = new ReportCard
-    {
-        StudentId = studentId,
-        GradeId = studentData.student.GradeId,
-        AcademicYear = academicYear,
-        Term = term,
-        PdfContent = pdfBytes,
-        GeneratedBy = generatedBy
-       
-    };
-
-    _context.ReportCards.Add(reportCard);
-    return reportCard;
-}
-
-
-        private async Task<(Student student, Grade grade)> GetStudentWithRelatedDataAsync(int studentId)
-        {
-            var result = await _context.Students
-                .Include(s => s.Grade)
-                .Where(s => s.Id == studentId)
-                .Select(s => new { Student = s, Grade = s.Grade })
-                .FirstOrDefaultAsync();
-
-            return result != null ? (result.Student, result.Grade) : (null, null);
-        }
-
-        private async Task<User> GetUserAsync(int userId)
-        {
-            string cacheKey = $"user_{userId}";
-            if (_cache.TryGetValue(cacheKey, out User cachedUser))
-            {
-                return cachedUser;
-            }
-
-            var user = await _context.Users.FindAsync(userId);
-            if (user != null)
-            {
-                _cache.Set(cacheKey, user, TimeSpan.FromHours(1));
-            }
-
-            return user;
-        }
-
-        private async Task<IEnumerable<ExamScore>> GetStudentScoresAsync(int studentId, int academicYear, int term)
-        {
-            return await _context.ExamScores
-                .Include(es => es.Subject)
-                .Include(es => es.ExamType)
-                .Where(es => es.StudentId == studentId &&
-                           es.AcademicYear == academicYear &&
-                           es.Term == term)
-                .ToListAsync();
-        }
 
         private void ValidateReportCardParameters(int id, int academicYear, int term, int generatedBy)
         {
@@ -424,6 +423,20 @@ private async Task<ReportCard> GenerateReportCardInternalAsync(int studentId, in
         }
 
         #endregion
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _concurrencySemaphore?.Dispose();
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
     }
 
     public class SecurityException : Exception
@@ -431,6 +444,4 @@ private async Task<ReportCard> GenerateReportCardInternalAsync(int studentId, in
         public SecurityException(string message) : base(message) { }
         public SecurityException(string message, Exception innerException) : base(message, innerException) { }
     }
-    
-    
 }
