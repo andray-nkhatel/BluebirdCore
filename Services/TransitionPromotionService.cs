@@ -73,15 +73,36 @@ namespace BluebirdCore.Services
 
             try
             {
-                // Get all active grades that have students and are valid for the current year
-                var gradesWithStudents = await _context.Grades
-                    .Include(g => g.Students.Where(s => !s.IsArchived))
-                    .Where(g => g.IsActive && 
-                               g.Students.Any(s => !s.IsArchived) &&
-                               g.IsValidForYear(currentAcademicYear))
+                // Step 1: Get all active grades (simple query)
+                var allActiveGrades = await _context.Grades
+                    .Where(g => g.IsActive)
                     .OrderBy(g => g.Level)
                     .ThenBy(g => g.Stream)
                     .ToListAsync();
+
+                // Step 2: Filter valid grades client-side and check for students
+                var gradesWithStudents = new List<Grade>();
+
+                foreach (var grade in allActiveGrades)
+                {
+                    // Check if grade is valid for the year (client-side evaluation)
+                    if (!grade.IsValidForYear(currentAcademicYear))
+                        continue;
+
+                    // Check if grade has active students
+                    var hasActiveStudents = await _context.Students
+                        .AnyAsync(s => s.GradeId == grade.Id && !s.IsArchived);
+
+                    if (hasActiveStudents)
+                    {
+                        // Load students for this grade
+                        grade.Students = await _context.Students
+                            .Where(s => s.GradeId == grade.Id && !s.IsArchived)
+                            .ToListAsync();
+
+                        gradesWithStudents.Add(grade);
+                    }
+                }
 
                 summary.TotalGradesProcessed = gradesWithStudents.Count;
 
@@ -90,11 +111,11 @@ namespace BluebirdCore.Services
                     try
                     {
                         var targetGrade = await FindNextGradeAsync(grade, currentAcademicYear);
-                        
+
                         if (targetGrade != null)
                         {
                             var studentsToPromote = grade.Students.Where(s => !s.IsArchived).ToList();
-                            
+
                             foreach (var student in studentsToPromote)
                             {
                                 student.GradeId = targetGrade.Id;
@@ -109,7 +130,7 @@ namespace BluebirdCore.Services
                                 ToGrade = targetGrade.FullName,
                                 StudentsPromoted = studentsToPromote.Count,
                                 Message = $"Promoted {studentsToPromote.Count} students from {grade.FullName} to {targetGrade.FullName}",
-                                CurriculumTransition = grade.CurriculumType != targetGrade.CurriculumType ? 
+                                CurriculumTransition = grade.CurriculumType != targetGrade.CurriculumType ?
                                     $"{grade.CurriculumType} → {targetGrade.CurriculumType}" : null
                             });
                         }
@@ -129,7 +150,7 @@ namespace BluebirdCore.Services
                 await _context.SaveChangesAsync();
 
                 summary.Success = summary.FailedPromotions == 0;
-                summary.Message = summary.Success 
+                summary.Message = summary.Success
                     ? $"Successfully promoted students from {summary.SuccessfulPromotions} grades. Total students promoted: {summary.TotalStudentsPromoted}"
                     : $"Promotion completed with {summary.FailedPromotions} failures out of {summary.TotalGradesProcessed} grades.";
 
@@ -165,14 +186,16 @@ namespace BluebirdCore.Services
                 .Where(g => g.CurriculumType == CurriculumType.Legacy && g.IsActive)
                 .CountAsync();
 
-            var competencyGrades = await _context.Grades
-                .Where(g => g.CurriculumType == CurriculumType.CompetencyBased && 
-                           g.IsValidForYear(academicYear))
-                .CountAsync();
+            // For IsValidForYear, fetch and filter client-side
+            var competencyGradesList = await _context.Grades
+                .Where(g => g.CurriculumType == CurriculumType.CompetencyBased)
+                .ToListAsync();
+            var competencyGrades = competencyGradesList.Count(g => g.IsValidForYear(academicYear));
 
-            var transitionalGrades = await _context.Grades
-                .Where(g => g.IsTransitional && g.IsValidForYear(academicYear))
-                .CountAsync();
+            var transitionalGradesList = await _context.Grades
+                .Where(g => g.IsTransitional)
+                .ToListAsync();
+            var transitionalGrades = transitionalGradesList.Count(g => g.IsValidForYear(academicYear));
 
             status.LegacyGradesActive = legacyGrades;
             status.CompetencyGradesActive = competencyGrades;
@@ -205,57 +228,73 @@ namespace BluebirdCore.Services
 
             // Handle normal progression within same curriculum
             var nextLevel = currentGrade.Level + 1;
-            
+
             if (currentGrade.CurriculumType == CurriculumType.Legacy)
             {
-                return await _context.Grades
-                    .FirstOrDefaultAsync(g => 
+                // Precompute values outside the query
+                var targetStream = MapStreamForPromotion(currentGrade.Stream, currentGrade.Section, GetNextSection(currentGrade.Section));
+                var targetSection = GetNextSection(currentGrade.Section);
+
+                // Fetch all possible grades and filter client-side for IsValidForYear
+                var possibleGrades = await _context.Grades
+                    .Where(g =>
                         g.Level == nextLevel &&
-                        g.Stream == MapStreamForPromotion(currentGrade.Stream, currentGrade.Section, SchoolSection.Secondary) &&
-                        g.Section == GetNextSection(currentGrade.Section) &&
+                        g.Stream == targetStream &&
+                        g.Section == targetSection &&
                         g.CurriculumType == CurriculumType.Legacy &&
-                        g.IsActive &&
-                        g.IsValidForYear(currentAcademicYear));
+                        g.IsActive)
+                    .ToListAsync();
+
+                return possibleGrades.FirstOrDefault(g => g.IsValidForYear(currentAcademicYear));
             }
             else // CompetencyBased
             {
-                return await _context.Grades
-                    .FirstOrDefaultAsync(g => 
+                // Fetch all possible grades and filter client-side for IsValidForYear
+                var possibleGrades = await _context.Grades
+                    .Where(g =>
                         g.Level == nextLevel &&
                         g.Stream == currentGrade.Stream &&
                         g.Section == currentGrade.Section &&
                         g.CurriculumType == CurriculumType.CompetencyBased &&
-                        g.IsActive &&
-                        g.IsValidForYear(currentAcademicYear));
+                        g.IsActive)
+                    .ToListAsync();
+
+                return possibleGrades.FirstOrDefault(g => g.IsValidForYear(currentAcademicYear));
             }
         }
 
         private async Task<Grade?> FindCompetencyBasedTarget(Grade currentGrade, string targetGradeName, int currentAcademicYear)
         {
             var targetStream = MapStreamForPromotion(currentGrade.Stream, currentGrade.Section, SchoolSection.Secondary);
-            
-            return await _context.Grades
-                .FirstOrDefaultAsync(g => 
+
+            // Fetch all possible grades and filter client-side for IsValidForYear
+            var possibleGrades = await _context.Grades
+                .Where(g =>
                     g.Name == targetGradeName &&
                     g.Stream == targetStream &&
                     g.Section == SchoolSection.Secondary &&
                     g.CurriculumType == CurriculumType.CompetencyBased &&
-                    g.IsActive &&
-                    g.IsValidForYear(currentAcademicYear));
+                    g.IsActive)
+                .ToListAsync();
+
+            return possibleGrades.FirstOrDefault(g => g.IsValidForYear(currentAcademicYear));
         }
 
         private async Task<Grade?> FindLegacyTarget(Grade currentGrade, string targetGradeName, int currentAcademicYear)
         {
             var targetStream = MapStreamForPromotion(currentGrade.Stream, currentGrade.Section, SchoolSection.Secondary);
-            
-            return await _context.Grades
-                .FirstOrDefaultAsync(g => 
+
+            // Fetch all possible grades and filter client-side for IsValidForYear
+            var possibleGrades = await _context.Grades
+                .Where(g =>
                     g.Name == targetGradeName &&
                     g.Stream == targetStream &&
                     g.Section == SchoolSection.Secondary &&
                     g.CurriculumType == CurriculumType.Legacy &&
-                    g.IsActive &&
-                    g.IsValidForYear(currentAcademicYear));
+                    g.IsActive)
+                .ToListAsync();
+
+            return possibleGrades.FirstOrDefault(g => g.IsValidForYear(currentAcademicYear));
         }
 
         private string MapStreamForPromotion(string currentStream, SchoolSection currentSection, SchoolSection targetSection)

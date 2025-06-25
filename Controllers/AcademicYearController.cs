@@ -59,36 +59,7 @@ namespace BluebirdCore.Controllers
             return Ok(activeYear);
         }
 
-        /// <summary>
-        /// Get curriculum transition status for an academic year
-        /// </summary>
-        [HttpGet("{academicYearId}/transition-status")]
-        [Authorize(Roles = "Admin,Teacher,Staff")]
-        public async Task<ActionResult> GetTransitionStatus(int academicYearId)
-        {
-            try
-            {
-                var status = await _academicYearService.GetTransitionStatusAsync(academicYearId);
-                return Ok(new
-                {
-                    academicYear = status.AcademicYear,
-                    isTransitionActive = status.IsTransitionActive,
-                    transitionPhase = status.TransitionPhase,
-                    gradesActive = new
-                    {
-                        legacy = status.LegacyGradesActive,
-                        competencyBased = status.CompetencyGradesActive,
-                        transitional = status.TransitionalGradesActive
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting transition status for Academic Year {AcademicYearId}", academicYearId);
-                return StatusCode(500, new { message = "Error retrieving transition status", error = ex.Message });
-            }
-        }
-
+        
         /// <summary>
         /// Create new academic year (Admin only)
         /// </summary>
@@ -198,51 +169,10 @@ namespace BluebirdCore.Controllers
         {
             try
             {
-                var result = await _academicYearService.PromoteAllStudentsAsync(academicYearId);
-                
-                if (!result.Success)
-                {
-                    return BadRequest(new 
-                    { 
-                        message = result.Message,
-                        errors = result.Errors,
-                        summary = new
-                        {
-                            totalGradesProcessed = result.TotalGradesProcessed,
-                            successfulPromotions = result.SuccessfulPromotions,
-                            failedPromotions = result.FailedPromotions,
-                            totalStudentsPromoted = result.TotalStudentsPromoted
-                        }
-                    });
-                }
+                var result = await _academicYearService.PromoteStudentsPreservingStreamAsync();
 
-                return Ok(new 
-                { 
-                    message = result.Message,
-                    summary = new
-                    {
-                        totalGradesProcessed = result.TotalGradesProcessed,
-                        successfulPromotions = result.SuccessfulPromotions,
-                        totalStudentsPromoted = result.TotalStudentsPromoted
-                    },
-                    promotionDetails = result.PromotionDetails.Select(pd => new
-                    {
-                        fromGrade = pd.FromGrade,
-                        toGrade = pd.ToGrade,
-                        studentsPromoted = pd.StudentsPromoted,
-                        message = pd.Message,
-                        curriculumTransition = pd.CurriculumTransition // New: Shows if there was a curriculum change
-                    }),
-                    transitionInfo = result.PromotionDetails
-                        .Where(pd => !string.IsNullOrEmpty(pd.CurriculumTransition))
-                        .Select(pd => new
-                        {
-                            grade = pd.FromGrade,
-                            transition = pd.CurriculumTransition,
-                            studentsAffected = pd.StudentsPromoted
-                        })
-                        .ToList()
-                });
+                return Ok();
+               
             }
             catch (Exception ex)
             {
@@ -255,98 +185,29 @@ namespace BluebirdCore.Controllers
             }
         }
 
-        /// <summary>
-        /// Promote selected grades only with curriculum transition support (Admin only)
-        // /// </summary>
-        // [HttpPost("{academicYearId}/promote-selected")]
-        // [Authorize(Roles = "Admin")]
-        // public async Task<ActionResult> PromoteSelectedGrades(int academicYearId, [FromBody] PromoteSelectedGradesDto request)
-        // {
-        //     try
-        //     {
-        //         if (request?.GradeIds == null || !request.GradeIds.Any())
-        //         {
-        //             return BadRequest(new { message = "Grade IDs are required" });
-        //         }
-
-        //         var result = await _academicYearService.PromoteSelectedGradesAsync(academicYearId, request.GradeIds);
-                
-        //         if (!result.Success)
-        //         {
-        //             return BadRequest(new 
-        //             { 
-        //                 message = result.Message,
-        //                 errors = result.Errors,
-        //                 summary = new
-        //                 {
-        //                     totalGradesProcessed = result.TotalGradesProcessed,
-        //                     successfulPromotions = result.SuccessfulPromotions,
-        //                     failedPromotions = result.FailedPromotions,
-        //                     totalStudentsPromoted = result.TotalStudentsPromoted
-        //                 }
-        //             });
-        //         }
-
-        //         return Ok(new 
-        //         { 
-        //             message = result.Message,
-        //             summary = new
-        //             {
-        //                 totalGradesProcessed = result.TotalGradesProcessed,
-        //                 successfulPromotions = result.SuccessfulPromotions,
-        //                 totalStudentsPromoted = result.TotalStudentsPromoted
-        //             },
-        //             promotionDetails = result.PromotionDetails.Select(pd => new
-        //             {
-        //                 fromGrade = pd.FromGrade,
-        //                 toGrade = pd.ToGrade,
-        //                 studentsPromoted = pd.StudentsPromoted,
-        //                 message = pd.Message,
-        //                 curriculumTransition = pd.CurriculumTransition
-        //             }),
-        //             transitionInfo = result.PromotionDetails
-        //                 .Where(pd => !string.IsNullOrEmpty(pd.CurriculumTransition))
-        //                 .Select(pd => new
-        //                 {
-        //                     grade = pd.FromGrade,
-        //                     transition = pd.CurriculumTransition,
-        //                     studentsAffected = pd.StudentsPromoted
-        //                 })
-        //                 .ToList()
-        //         });
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         _logger.LogError(ex, "Error during selective promotion for Academic Year {AcademicYearId}", academicYearId);
-        //         return StatusCode(500, new 
-        //         { 
-        //             message = "An unexpected error occurred during selective student promotion",
-        //             error = ex.Message
-        //         });
-        //     }
-        // }
-
+     
         // /// <summary>
         /// Archive graduates from both Grade 12 and Form 6 (Admin only)
         /// </summary>
-        [HttpPost("{academicYearId}/archive-graduates")]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult> ArchiveGraduates(int academicYearId)
-        {
-            try
-            {
-                var success = await _academicYearService.ArchiveGraduatesAsync(academicYearId);
-                if (!success)
-                    return BadRequest(new { message = "Failed to archive graduates or no graduates found" });
+        // [HttpPost("{academicYearId}/archive-graduates")]
+        // [Authorize(Roles = "Admin")]
+        // public async Task<ActionResult> ArchiveGraduates(int academicYearId)
+        // {
+        //     try
+        //     {
+        //         //var success = await _academicYearService.ArchiveGraduatesAsync(academicYearId);
+        //         var success = await _academicYearService.ArchiveGraduatesAsync(academicYearId);
+        //         if (!success)
+        //             return BadRequest(new { message = "Failed to archive graduates or no graduates found" });
 
-                return Ok(new { message = "Graduates archived successfully from both Grade 12 (Legacy) and Form 6 (Cambridge)" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error archiving graduates for Academic Year {AcademicYearId}", academicYearId);
-                return StatusCode(500, new { message = "An error occurred while archiving graduates", error = ex.Message });
-            }
-        }
+        //         return Ok(new { message = "Graduates archived successfully from both Grade 12 (Legacy) and Form 6 (Cambridge)" });
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         _logger.LogError(ex, "Error archiving graduates for Academic Year {AcademicYearId}", academicYearId);
+        //         return StatusCode(500, new { message = "An error occurred while archiving graduates", error = ex.Message });
+        //     }
+        // }
     }
 
     // DTO for selective grade promotion

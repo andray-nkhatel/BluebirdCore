@@ -416,7 +416,7 @@ namespace BluebirdCore.Services
                 throw new ArgumentException("Invalid academic year", nameof(academicYear));
 
             if (term < 1 || term > 4)
-                throw new ArgumentException("Term must be between 1 and 4", nameof(term));
+                throw new ArgumentException("Term must be between 1 and 3", nameof(term));
 
             if (generatedBy <= 0)
                 throw new ArgumentException("GeneratedBy must be greater than 0", nameof(generatedBy));

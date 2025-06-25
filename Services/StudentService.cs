@@ -441,7 +441,7 @@ namespace BluebirdCore.Services
                 }
                 else
                 {
-                    dto.DateOfBirth = default(DateTime);
+                    dto.DateOfBirth = DateTime.UtcNow.AddYears(-17);
                 }
 
                 if (TryParseDate(GetCsvValue(csv, "EnrollmentDate"), out var enrollmentDate))
